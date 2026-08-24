@@ -148,6 +148,36 @@ def get_camera_uptime():
         return None
 
 
+def get_website_visitors():
+    """
+    Scrape the vnox.de visitor counter embedded on www.zander-info.de.
+    Returns dict with total, today, yesterday, online_now.
+    """
+    import re
+    try:
+        url = "http://www.vnox.de/counter/counter.php?id=492&stats=j05"
+        req = urllib.request.Request(url)
+        req.add_header("User-Agent", "zanderhbf2-probe/1.0")
+        resp = urllib.request.urlopen(req, timeout=10).read().decode("utf-8", errors="replace")
+        # The response is a document.write() with a table containing stats.
+        # Extract all numbers from the left-aligned stats cells.
+        nums = re.findall(r'align=left[^>]*><font[^>]*>(.*?)</font>', resp, re.S)
+        values = []
+        for block in nums:
+            found = re.findall(r'\d+', block)
+            values.extend(found)
+        if len(values) >= 4:
+            return {
+                "total_visitors": int(values[0]),
+                "visitors_today": int(values[1]),
+                "visitors_yesterday": int(values[2]),
+                "users_online": int(values[3]),
+            }
+        return {"raw_response": resp[:300], "values_found": values}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ─── CORE MJPEG PROBE ────────────────────────────────────────────────────────
 
 def probe_mjpeg(resolution, compression, duration=CAPTURE_DURATION, extra_connections=0):
@@ -505,6 +535,7 @@ def build_model_summary(history):
     by_phase = defaultdict(list)
     by_hour = defaultdict(list)
     by_extra_conn = defaultdict(list)
+    by_visitors_online = defaultdict(list)
 
     for rec in history:
         res = rec.get("resolution", "unknown")
@@ -518,6 +549,15 @@ def build_model_summary(history):
         by_compression[comp].append(fps)
         by_phase[phase].append(fps)
         by_extra_conn[extra].append(fps)
+
+        # Website visitors online (from vnox.de counter)
+        visitors = rec.get("website_visitors", {})
+        if isinstance(visitors, dict) and "users_online" in visitors:
+            online = visitors["users_online"]
+            if isinstance(online, int):
+                # Bucket into ranges for grouping
+                bucket = online
+                by_visitors_online[bucket].append(fps)
 
         if ts:
             try:
@@ -551,6 +591,7 @@ def build_model_summary(history):
         "by_compression": {str(k): stats_list(v) for k, v in sorted(by_compression.items())},
         "by_hour": {str(k): stats_list(v) for k, v in sorted(by_hour.items())},
         "by_extra_connections": {str(k): stats_list(v) for k, v in sorted(by_extra_conn.items())},
+        "by_visitors_online": {str(k): stats_list(v) for k, v in sorted(by_visitors_online.items())},
         "by_phase": {str(k): stats_list(v) for k, v in sorted(by_phase.items())},
     }
 
@@ -575,18 +616,22 @@ def build_model_summary(history):
 
     summary["regression_fps_vs_megapixels"] = regression_by_comp
 
-    # ── Multi-factor: FPS vs (mp, compression, connections) ──
-    # FPS = a + b*mp + c*comp + d*conn + e*mp*comp
+    # ── Multi-factor: FPS vs (mp, compression, connections, users_online) ──
+    # FPS = a + b*mp + c*comp + d*conn + e*mp*comp + f*users_online
     multi_data = []
     for rec in history:
         res = rec.get("resolution")
         if res in RES_MP and rec.get("compression") is not None:
-            multi_data.append({
-                "mp": RES_MP[res],
-                "comp": rec["compression"],
-                "conn": rec.get("extra_connections", 0),
-                "fps": rec.get("measured_fps", 0),
-            })
+            visitors = rec.get("website_visitors", {})
+            users_online = visitors.get("users_online", 0)
+            if isinstance(users_online, int):
+                multi_data.append({
+                    "mp": RES_MP[res],
+                    "comp": rec["compression"],
+                    "conn": rec.get("extra_connections", 0),
+                    "online": users_online,
+                    "fps": rec.get("measured_fps", 0),
+                })
 
     if len(multi_data) >= 10:
         summary["multifactor_regression"] = multi_linear_regression(multi_data)
@@ -641,7 +686,7 @@ def multi_linear_regression(data):
     if n < 6:
         return {"status": "insufficient_data"}
 
-    # Build design matrix X: [1, mp, comp, conn, mp*comp]
+    # Build design matrix X: [1, mp, comp, conn, mp*comp, online]
     # And target vector Y: [fps]
     import copy
     X = []
@@ -650,12 +695,13 @@ def multi_linear_regression(data):
         mp = d["mp"]
         comp = d["comp"]
         conn = d["conn"]
-        X.append([1, mp, comp, conn, mp * comp])
+        online = d.get("online", 0)
+        X.append([1, mp, comp, conn, mp * comp, online])
         Y.append(d["fps"])
 
     # Normal equation: beta = (X^T X)^-1 X^T Y
     # Compute X^T X
-    k = len(X[0])  # 5
+    k = len(X[0])  # 6
     XtX = [[0.0] * k for _ in range(k)]
     XtY = [0.0] * k
 
@@ -703,12 +749,13 @@ def multi_linear_regression(data):
             "compression": round(beta[2], 6),
             "connections": round(beta[3], 6),
             "mp_x_compression": round(beta[4], 6),
+            "users_online": round(beta[5], 6),
         },
         "r_squared": round(r_squared, 6),
         "mae": round(mae, 4),
         "rmse": round(rmse, 4),
         "equation": (f"FPS = {beta[0]:.3f} + {beta[1]:.3f}*MP + {beta[2]:.4f}*comp "
-                     f"+ {beta[3]:.3f}*conn + {beta[4]:.5f}*(MP*comp) "
+                     f"+ {beta[3]:.3f}*conn + {beta[4]:.5f}*(MP*comp) + {beta[5]:.4f}*online "
                      f"(R²={r_squared:.4f}, RMSE={rmse:.3f})"),
     }
 
@@ -870,6 +917,17 @@ def generate_findings(summary):
             f"worst hour {worst_hour[0]}:00 (mean {worst_hour[1]['mean']}fps)"
         )
 
+    # Website visitors online effect
+    by_online = summary.get("by_visitors_online", {})
+    if len(by_online) >= 2:
+        online_sorted = sorted(by_online.items(), key=lambda x: int(x[0]))
+        low_online = online_sorted[0]
+        high_online = online_sorted[-1]
+        findings.append(
+            f"Website visitors online: {low_online[0]} users → {low_online[1]['mean']}fps, "
+            f"{high_online[0]} users → {high_online[1]['mean']}fps"
+        )
+
     return findings
 
 
@@ -917,6 +975,8 @@ def main():
     rtt = measure_rtt()
     log(f"RTT: {rtt}ms")
     camera_info = get_camera_temperature()
+    website_visitors = get_website_visitors()
+    log(f"Website visitors online: {website_visitors.get('users_online', '?')}")
 
     # Run the probe
     result = probe_mjpeg(
@@ -936,6 +996,7 @@ def main():
         **result,
         "network_rtt_ms": rtt,
         "camera_info": camera_info,
+        "website_visitors": website_visitors,
         "phase": test.get("phase"),
         "strategy": test.get("strategy"),
         "run_number": len(history) + 1,
