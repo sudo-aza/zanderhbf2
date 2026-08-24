@@ -1,23 +1,23 @@
 {
   "status": "ok",
-  "total_measurements": 3,
-  "last_updated": "2026-08-24T21:01:56.404248",
+  "total_measurements": 4,
+  "last_updated": "2026-08-24T22:01:59.428996",
   "global_fps": {
-    "count": 3,
-    "mean": 17.2408,
-    "std": 10.559,
+    "count": 4,
+    "mean": 19.1542,
+    "std": 9.7264,
     "min": 2.3141,
     "max": 25.0712,
-    "median": 24.3372
+    "median": 24.8943
   },
   "by_resolution": {
     "160x90": {
-      "count": 3,
-      "mean": 17.2408,
-      "std": 10.559,
+      "count": 4,
+      "mean": 19.1542,
+      "std": 9.7264,
       "min": 2.3141,
       "max": 25.0712,
-      "median": 24.3372
+      "median": 24.8943
     }
   },
   "by_compression": {
@@ -44,6 +44,14 @@
       "min": 25.0712,
       "max": 25.0712,
       "median": 25.0712
+    },
+    "75": {
+      "count": 1,
+      "mean": 24.8943,
+      "std": 0,
+      "min": 24.8943,
+      "max": 24.8943,
+      "median": 24.8943
     }
   },
   "by_hour": {
@@ -70,16 +78,24 @@
       "min": 25.0712,
       "max": 25.0712,
       "median": 25.0712
+    },
+    "22": {
+      "count": 1,
+      "mean": 24.8943,
+      "std": 0,
+      "min": 24.8943,
+      "max": 24.8943,
+      "median": 24.8943
     }
   },
   "by_extra_connections": {
     "0": {
-      "count": 3,
-      "mean": 17.2408,
-      "std": 10.559,
+      "count": 4,
+      "mean": 19.1542,
+      "std": 9.7264,
       "min": 2.3141,
       "max": 25.0712,
-      "median": 24.3372
+      "median": 24.8943
     }
   },
   "by_visitors_online": {
@@ -92,22 +108,22 @@
       "median": 24.3372
     },
     "3": {
-      "count": 1,
-      "mean": 25.0712,
-      "std": 0,
-      "min": 25.0712,
+      "count": 2,
+      "mean": 24.9828,
+      "std": 0.0884,
+      "min": 24.8943,
       "max": 25.0712,
       "median": 25.0712
     }
   },
   "by_phase": {
     "1": {
-      "count": 3,
-      "mean": 17.2408,
-      "std": 10.559,
+      "count": 4,
+      "mean": 19.1542,
+      "std": 9.7264,
       "min": 2.3141,
       "max": 25.0712,
-      "median": 24.3372
+      "median": 24.8943
     }
   },
   "regression_fps_vs_megapixels": {},
@@ -115,9 +131,9 @@
     "encoder_bottleneck_count": 1,
     "bandwidth_bottleneck_count": 0,
     "sensor_bottleneck_count": 0,
-    "unknown_count": 2
+    "unknown_count": 3
   },
   "key_findings": [
-    "Only 3 measurements so far. Need more data for reliable findings."
+    "Only 4 measurements so far. Need more data for reliable findings."
   ]
 }
