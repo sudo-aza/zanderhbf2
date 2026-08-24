@@ -1,0 +1,73 @@
+{
+  "status": "ok",
+  "total_measurements": 1,
+  "last_updated": "2026-08-24T10:38:39.956412",
+  "global_fps": {
+    "count": 1,
+    "mean": 2.3141,
+    "std": 0,
+    "min": 2.3141,
+    "max": 2.3141,
+    "median": 2.3141
+  },
+  "by_resolution": {
+    "160x90": {
+      "count": 1,
+      "mean": 2.3141,
+      "std": 0,
+      "min": 2.3141,
+      "max": 2.3141,
+      "median": 2.3141
+    }
+  },
+  "by_compression": {
+    "0": {
+      "count": 1,
+      "mean": 2.3141,
+      "std": 0,
+      "min": 2.3141,
+      "max": 2.3141,
+      "median": 2.3141
+    }
+  },
+  "by_hour": {
+    "10": {
+      "count": 1,
+      "mean": 2.3141,
+      "std": 0,
+      "min": 2.3141,
+      "max": 2.3141,
+      "median": 2.3141
+    }
+  },
+  "by_extra_connections": {
+    "0": {
+      "count": 1,
+      "mean": 2.3141,
+      "std": 0,
+      "min": 2.3141,
+      "max": 2.3141,
+      "median": 2.3141
+    }
+  },
+  "by_phase": {
+    "1": {
+      "count": 1,
+      "mean": 2.3141,
+      "std": 0,
+      "min": 2.3141,
+      "max": 2.3141,
+      "median": 2.3141
+    }
+  },
+  "regression_fps_vs_megapixels": {},
+  "bottleneck_analysis": {
+    "encoder_bottleneck_count": 1,
+    "bandwidth_bottleneck_count": 0,
+    "sensor_bottleneck_count": 0,
+    "unknown_count": 0
+  },
+  "key_findings": [
+    "Only 1 measurements so far. Need more data for reliable findings."
+  ]
+}
