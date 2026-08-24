@@ -1,23 +1,23 @@
 {
   "status": "ok",
-  "total_measurements": 1,
-  "last_updated": "2026-08-24T10:38:39.956412",
+  "total_measurements": 2,
+  "last_updated": "2026-08-24T20:02:40.370810",
   "global_fps": {
-    "count": 1,
-    "mean": 2.3141,
-    "std": 0,
+    "count": 2,
+    "mean": 13.3256,
+    "std": 11.0115,
     "min": 2.3141,
-    "max": 2.3141,
-    "median": 2.3141
+    "max": 24.3372,
+    "median": 24.3372
   },
   "by_resolution": {
     "160x90": {
-      "count": 1,
-      "mean": 2.3141,
-      "std": 0,
+      "count": 2,
+      "mean": 13.3256,
+      "std": 11.0115,
       "min": 2.3141,
-      "max": 2.3141,
-      "median": 2.3141
+      "max": 24.3372,
+      "median": 24.3372
     }
   },
   "by_compression": {
@@ -28,6 +28,14 @@
       "min": 2.3141,
       "max": 2.3141,
       "median": 2.3141
+    },
+    "25": {
+      "count": 1,
+      "mean": 24.3372,
+      "std": 0,
+      "min": 24.3372,
+      "max": 24.3372,
+      "median": 24.3372
     }
   },
   "by_hour": {
@@ -38,26 +46,44 @@
       "min": 2.3141,
       "max": 2.3141,
       "median": 2.3141
+    },
+    "20": {
+      "count": 1,
+      "mean": 24.3372,
+      "std": 0,
+      "min": 24.3372,
+      "max": 24.3372,
+      "median": 24.3372
     }
   },
   "by_extra_connections": {
     "0": {
-      "count": 1,
-      "mean": 2.3141,
-      "std": 0,
+      "count": 2,
+      "mean": 13.3256,
+      "std": 11.0115,
       "min": 2.3141,
-      "max": 2.3141,
-      "median": 2.3141
+      "max": 24.3372,
+      "median": 24.3372
+    }
+  },
+  "by_visitors_online": {
+    "1": {
+      "count": 1,
+      "mean": 24.3372,
+      "std": 0,
+      "min": 24.3372,
+      "max": 24.3372,
+      "median": 24.3372
     }
   },
   "by_phase": {
     "1": {
-      "count": 1,
-      "mean": 2.3141,
-      "std": 0,
+      "count": 2,
+      "mean": 13.3256,
+      "std": 11.0115,
       "min": 2.3141,
-      "max": 2.3141,
-      "median": 2.3141
+      "max": 24.3372,
+      "median": 24.3372
     }
   },
   "regression_fps_vs_megapixels": {},
@@ -65,9 +91,9 @@
     "encoder_bottleneck_count": 1,
     "bandwidth_bottleneck_count": 0,
     "sensor_bottleneck_count": 0,
-    "unknown_count": 0
+    "unknown_count": 1
   },
   "key_findings": [
-    "Only 1 measurements so far. Need more data for reliable findings."
+    "Only 2 measurements so far. Need more data for reliable findings."
   ]
 }
