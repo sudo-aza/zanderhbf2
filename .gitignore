@@ -1,0 +1,30 @@
+# Video files (too large for git)
+*.mp4
+*.avi
+*.mkv
+*.webm
+
+# Raw CGI stream dumps
+*.cgi
+*.bin
+*.raw
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment / secrets
+.env
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary capture files
+tmp/
+*.tmp
+
+# Large frame dumps
+frames/
