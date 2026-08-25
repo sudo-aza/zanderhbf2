@@ -1,16 +1,24 @@
 {
   "status": "ok",
-  "total_measurements": 5,
-  "last_updated": "2026-08-24T23:02:06.357973",
+  "total_measurements": 6,
+  "last_updated": "2026-08-25T03:02:02.915922",
   "global_fps": {
-    "count": 5,
-    "mean": 20.1357,
-    "std": 8.9183,
+    "count": 6,
+    "mean": 19.6757,
+    "std": 8.206,
     "min": 2.3141,
     "max": 25.0712,
     "median": 24.3372
   },
   "by_resolution": {
+    "160x120": {
+      "count": 1,
+      "mean": 17.3758,
+      "std": 0,
+      "min": 17.3758,
+      "max": 17.3758,
+      "median": 17.3758
+    },
     "160x90": {
       "count": 5,
       "mean": 20.1357,
@@ -22,12 +30,12 @@
   },
   "by_compression": {
     "0": {
-      "count": 1,
-      "mean": 2.3141,
-      "std": 0,
+      "count": 2,
+      "mean": 9.845,
+      "std": 7.5309,
       "min": 2.3141,
-      "max": 2.3141,
-      "median": 2.3141
+      "max": 17.3758,
+      "median": 17.3758
     },
     "25": {
       "count": 1,
@@ -63,6 +71,14 @@
     }
   },
   "by_hour": {
+    "3": {
+      "count": 1,
+      "mean": 17.3758,
+      "std": 0,
+      "min": 17.3758,
+      "max": 17.3758,
+      "median": 17.3758
+    },
     "10": {
       "count": 1,
       "mean": 2.3141,
@@ -106,9 +122,9 @@
   },
   "by_extra_connections": {
     "0": {
-      "count": 5,
-      "mean": 20.1357,
-      "std": 8.9183,
+      "count": 6,
+      "mean": 19.6757,
+      "std": 8.206,
       "min": 2.3141,
       "max": 25.0712,
       "median": 24.3372
@@ -116,12 +132,12 @@
   },
   "by_visitors_online": {
     "1": {
-      "count": 2,
-      "mean": 24.1995,
-      "std": 0.1377,
-      "min": 24.0618,
+      "count": 3,
+      "mean": 21.9249,
+      "std": 3.2187,
+      "min": 17.3758,
       "max": 24.3372,
-      "median": 24.3372
+      "median": 24.0618
     },
     "3": {
       "count": 2,
@@ -134,9 +150,9 @@
   },
   "by_phase": {
     "1": {
-      "count": 5,
-      "mean": 20.1357,
-      "std": 8.9183,
+      "count": 6,
+      "mean": 19.6757,
+      "std": 8.206,
       "min": 2.3141,
       "max": 25.0712,
       "median": 24.3372
@@ -147,14 +163,14 @@
     "encoder_bottleneck_count": 1,
     "bandwidth_bottleneck_count": 0,
     "sensor_bottleneck_count": 0,
-    "unknown_count": 4
+    "unknown_count": 5
   },
   "key_findings": [
     "Best FPS: 25.0712 at resolution 160x90 (mean: 20.1357, 5 tests)",
-    "Worst mean FPS: 20.1357 at resolution 160x90",
-    "Compression effect: c0=2.3141fps, c50=25.0712fps, c100=24.0618fps",
-    "Bottleneck distribution: encoder=1, bandwidth=0, sensor=0, mixed=4",
+    "Worst mean FPS: 17.3758 at resolution 160x120",
+    "Compression effect: c0=9.845fps, c50=25.0712fps, c100=24.0618fps",
+    "Bottleneck distribution: encoder=1, bandwidth=0, sensor=0, mixed=5",
     "Time-of-day: best hour 21:00 (mean 25.0712fps), worst hour 10:00 (mean 2.3141fps)",
-    "Website visitors online: 1 users \u2192 24.1995fps, 3 users \u2192 24.9828fps"
+    "Website visitors online: 1 users \u2192 21.9249fps, 3 users \u2192 24.9828fps"
   ]
 }
