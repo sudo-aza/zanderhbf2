@@ -61,7 +61,9 @@ MODEL_FILE = DATA_DIR / "model_summary.json"
 PLAN_FILE = DATA_DIR / "experiment_plan.json"
 GIT_CREDENTIALS_FILE = REPO_DIR / ".git-credentials"  # will be created at runtime, gitignored
 
-CAPTURE_DURATION = 30  # seconds per probe (short for hourly cron)
+CAPTURE_DURATION = 35  # seconds per probe (increased from 30 for better noise averaging)
+MIN_FRAMES_FOR_VALID = 15  # minimum frames to consider a measurement valid
+HIGH_JITTER_THRESHOLD_MS = 200  # if jitter exceeds this, flag measurement as noisy (short for hourly cron)
 REQUESTED_FPS = 30
 
 # ─── UTILITIES ────────────────────────────────────────────────────────────────
@@ -616,31 +618,70 @@ def build_model_summary(history):
 
     summary["regression_fps_vs_megapixels"] = regression_by_comp
 
-    # ── Multi-factor: FPS vs (mp, compression, connections, users_online) ──
-    # FPS = a + b*mp + c*comp + d*conn + e*mp*comp + f*users_online
+    # ── Multi-factor: FPS vs (mp, compression, connections, users_online, rtt, jitter, hour) ──
+    # Build two datasets: all data, and clean data (non-noisy)
     multi_data = []
+    multi_data_clean = []
     for rec in history:
         res = rec.get("resolution")
         if res in RES_MP and rec.get("compression") is not None:
             visitors = rec.get("website_visitors", {})
             users_online = visitors.get("users_online", 0)
-            if isinstance(users_online, int):
-                multi_data.append({
-                    "mp": RES_MP[res],
-                    "comp": rec["compression"],
-                    "conn": rec.get("extra_connections", 0),
-                    "online": users_online,
-                    "fps": rec.get("measured_fps", 0),
-                })
+            if not isinstance(users_online, int):
+                users_online = 0
+            
+            entry = {
+                "mp": RES_MP[res],
+                "comp": rec["compression"],
+                "conn": rec.get("extra_connections", 0),
+                "online": users_online,
+                "rtt": (rec.get("network_rtt_ms", 0) or 0) / 1000.0,  # convert to seconds
+                "jitter": (rec.get("jitter_ms", 0) or 0) / 1000.0,  # convert to seconds
+                "hour": rec.get("utc_hour", rec.get("local_hour", 12)),
+                "fps": rec.get("measured_fps", 0),
+            }
+            multi_data.append(entry)
+            
+            # Clean dataset: exclude noisy/invalid measurements
+            quality = rec.get("quality_flags", {})
+            if not quality.get("is_noisy", False) and not quality.get("is_invalid", False):
+                multi_data_clean.append(entry)
+            # Also exclude if no quality_flags (old records) but jitter > 200
+            elif not quality and (rec.get("jitter_ms", 0) or 0) < HIGH_JITTER_THRESHOLD_MS:
+                multi_data_clean.append(entry)
 
-    if len(multi_data) >= 10:
-        summary["multifactor_regression"] = multi_linear_regression(multi_data)
+    # Run regression on all data (threshold 8 instead of 10 for faster initial results)
+    if len(multi_data) >= 8:
+        summary["multifactor_regression"] = multi_linear_regression(multi_data, label="all_data")
+    # Run regression on clean data if we have enough
+    if len(multi_data_clean) >= 6:
+        summary["multifactor_regression_clean"] = multi_linear_regression(multi_data_clean, label="clean_data")
 
     # ── Bottleneck analysis ──
     # Identify whether encoder or bandwidth is the bottleneck per measurement
     bottleneck_analysis = analyze_bottlenecks(history)
     summary["bottleneck_analysis"] = bottleneck_analysis
 
+    # ── Quality metrics ──
+    # Track how many measurements are noisy/invalid
+    noisy_count = sum(1 for r in history if r.get("quality_flags", {}).get("is_noisy", False))
+    invalid_count = sum(1 for r in history if not r.get("quality_flags", {}).get("is_valid", True))
+    summary["quality_metrics"] = {
+        "total_measurements": total,
+        "noisy_count": noisy_count,
+        "invalid_count": invalid_count,
+        "clean_count": total - noisy_count,
+        "noise_rate": round(noisy_count / total, 3) if total > 0 else 0,
+    }
+    
+    # ── RTT and jitter stats ──
+    rtts = [r.get("network_rtt_ms", 0) or 0 for r in history]
+    jitters = [r.get("jitter_ms", 0) or 0 for r in history]
+    summary["network_stats"] = {
+        "rtt_ms": stats_list(rtts),
+        "jitter_ms": stats_list(jitters),
+    }
+    
     # ── Key findings ──
     summary["key_findings"] = generate_findings(summary)
 
@@ -677,31 +718,97 @@ def simple_linear_regression(pairs):
     }
 
 
-def multi_linear_regression(data):
+def multi_linear_regression(data, label=""):
     """
-    Simple multiple regression: FPS = a + b*mp + c*comp + d*conn + e*mp*comp
+    Multiple regression with 9 features:
+      FPS = a + b*mp + c*comp + d*conn + e*mp*comp + f*online + g*rtt + h*jitter + i*sin(hour)
     Using normal equation (no external deps).
+    Also tries a reduced 6-feature model if 9-feature is underdetermined.
     """
     n = len(data)
     if n < 6:
-        return {"status": "insufficient_data"}
+        return {"status": "insufficient_data", "label": label}
 
-    # Build design matrix X: [1, mp, comp, conn, mp*comp, online]
-    # And target vector Y: [fps]
-    import copy
+    results = {}
+    
+    # Try full 9-feature model first (needs n >= 10 for stability)
+    if n >= 10:
+        full_result = _fit_regression(data, features="full")
+        if full_result.get("status") == "ok":
+            full_result["label"] = label + "_9feat"
+            results["full_9feat"] = full_result
+    
+    # Try reduced 6-feature model (always if n >= 8)
+    reduced_result = _fit_regression(data, features="reduced")
+    if reduced_result.get("status") == "ok":
+        reduced_result["label"] = label + "_6feat"
+        results["reduced_6feat"] = reduced_result
+    
+    # Try minimal 4-feature model (mp, comp, rtt, jitter - no interaction)
+    minimal_result = _fit_regression(data, features="minimal")
+    if minimal_result.get("status") == "ok":
+        minimal_result["label"] = label + "_4feat"
+        results["minimal_4feat"] = minimal_result
+    
+    if not results:
+        return {"status": "all_models_failed", "n": n, "label": label}
+    
+    # Pick best model by R²
+    best_key = max(results, key=lambda k: results[k].get("r_squared", -999))
+    best = results[best_key]
+    best["best_model"] = best_key
+    best["label"] = label
+    best["n"] = n
+    # Keep all models for comparison
+    best["all_models"] = {k: {"r_squared": v.get("r_squared", 0), "equation": v.get("equation", "")} 
+                           for k, v in results.items()}
+    return best
+
+
+def _fit_regression(data, features="reduced"):
+    """
+    Fit a specific regression model configuration.
+    feature sets:
+      - "full": [1, mp, comp, conn, mp*comp, online, rtt, jitter, sin(hour)]
+      - "reduced": [1, mp, comp, conn, mp*comp, online]
+      - "minimal": [1, mp, comp, rtt, jitter]
+    """
+    n = len(data)
     X = []
     Y = []
+    feature_names = []
+    
     for d in data:
         mp = d["mp"]
         comp = d["comp"]
         conn = d["conn"]
         online = d.get("online", 0)
-        X.append([1, mp, comp, conn, mp * comp, online])
+        rtt = d.get("rtt", 0)
+        jitter = d.get("jitter", 0)
+        hour = d.get("hour", 12)
+        # Sinusoidal hour feature to capture time-of-day periodicity
+        sin_hour = math.sin(2 * math.pi * hour / 24)
+        
+        if features == "full":
+            row = [1, mp, comp, conn, mp * comp, online, rtt, jitter, sin_hour]
+            feature_names = ["intercept", "megapixels", "compression", "connections",
+                            "mp_x_compression", "users_online", "rtt_s", "jitter_s", "sin_hour"]
+        elif features == "minimal":
+            row = [1, mp, comp, rtt, jitter]
+            feature_names = ["intercept", "megapixels", "compression", "rtt_s", "jitter_s"]
+        else:  # reduced
+            row = [1, mp, comp, conn, mp * comp, online]
+            feature_names = ["intercept", "megapixels", "compression", "connections",
+                            "mp_x_compression", "users_online"]
+        
+        X.append(row)
         Y.append(d["fps"])
 
+    k = len(X[0])
+    if n < k:
+        return {"status": f"underdetermined (n={n} < k={k})"}
+
     # Normal equation: beta = (X^T X)^-1 X^T Y
-    # Compute X^T X
-    k = len(X[0])  # 6
     XtX = [[0.0] * k for _ in range(k)]
     XtY = [0.0] * k
 
@@ -715,7 +822,7 @@ def multi_linear_regression(data):
     try:
         inv = matrix_invert(XtX)
     except Exception:
-        return {"status": "singular_matrix", "n": n}
+        return {"status": "singular_matrix", "n": n, "k": k}
 
     # beta = inv * XtY
     beta = [0.0] * k
@@ -740,23 +847,28 @@ def multi_linear_regression(data):
     mae = sum(errors) / n
     rmse = math.sqrt(sum(e ** 2 for e in errors) / n)
 
+    # Build coefficient dict
+    coefficients = {name: round(beta[i], 6) for i, name in enumerate(feature_names)}
+    
+    # Build equation string
+    terms = []
+    for i, name in enumerate(feature_names):
+        if name == "intercept":
+            terms.append(f"{beta[i]:.3f}")
+        else:
+            short_name = name.replace("_s", "").replace("mp_x_compression", "MP*C")
+            terms.append(f"{beta[i]:.4f}*{short_name}")
+    equation = "FPS = " + " + ".join(terms) + f" (R²={r_squared:.4f}, RMSE={rmse:.3f})"
+
     return {
         "status": "ok",
         "n": n,
-        "coefficients": {
-            "intercept": round(beta[0], 6),
-            "megapixels": round(beta[1], 6),
-            "compression": round(beta[2], 6),
-            "connections": round(beta[3], 6),
-            "mp_x_compression": round(beta[4], 6),
-            "users_online": round(beta[5], 6),
-        },
+        "k": k,
+        "coefficients": coefficients,
         "r_squared": round(r_squared, 6),
         "mae": round(mae, 4),
         "rmse": round(rmse, 4),
-        "equation": (f"FPS = {beta[0]:.3f} + {beta[1]:.3f}*MP + {beta[2]:.4f}*comp "
-                     f"+ {beta[3]:.3f}*conn + {beta[4]:.5f}*(MP*comp) + {beta[5]:.4f}*online "
-                     f"(R²={r_squared:.4f}, RMSE={rmse:.3f})"),
+        "equation": equation,
     }
 
 
@@ -803,11 +915,13 @@ def analyze_bottlenecks(history):
     - Encoder (FPS limited by JPEG encoding speed) — low compression + low FPS
     - Bandwidth (FPS limited by network) — high frame size * high FPS exceeds capacity
     - Sensor (FPS limited by capture hardware) — very high compression still low FPS
+    - Network noise (high jitter/RTT causing frame delivery issues)
     """
     analysis = {
         "encoder_bottleneck_count": 0,
         "bandwidth_bottleneck_count": 0,
         "sensor_bottleneck_count": 0,
+        "network_noise_count": 0,
         "unknown_count": 0,
     }
 
@@ -815,15 +929,16 @@ def analyze_bottlenecks(history):
         comp = rec.get("compression", 50)
         fps = rec.get("measured_fps", 0)
         avg_size = rec.get("avg_frame_size_bytes", 0)
-        bandwidth = rec.get("bandwidth_mbps", 0)
         res = rec.get("resolution", "")
         mp = RES_MP.get(res, 1)
+        jitter = rec.get("jitter_ms", 0)
+        rtt = rec.get("network_rtt_ms", 0) or 0
 
-        # Heuristic classification:
-        # - If comp < 20 and fps < 5: encoder bottleneck (expensive JPEG encoding)
-        # - If avg_size * fps > some threshold: bandwidth bottleneck
-        # - If comp > 80 and fps < 2: sensor/hardware bottleneck
-        # - Otherwise: mixed/unknown
+        # First check for network noise: high jitter or very high RTT
+        if jitter > 200 or rtt > 1500:
+            rec["_bottleneck"] = "network_noise"
+            analysis["network_noise_count"] += 1
+            continue
 
         effective_bandwidth_demand = avg_size * fps * 8 / 1e6  # Mbps
 
@@ -881,12 +996,20 @@ def generate_findings(summary):
     if multi.get("status") == "ok":
         findings.append(f"Model: {multi.get('equation', 'N/A')}")
         r2 = multi.get("r_squared", 0)
+        best_model = multi.get("best_model", "unknown")
+        findings.append(f"Best model variant: {best_model}")
         if r2 > 0.8:
             findings.append(f"Strong model fit (R²={r2}). Variables explain most FPS variance.")
         elif r2 > 0.5:
             findings.append(f"Moderate model fit (R²={r2}). Missing factors (time-of-day, network load?).")
         else:
-            findings.append(f"Weak model fit (R²={r2}). FPS depends on unmeasured factors.")
+            findings.append(f"Weak model fit (R²={r2}). FPS depends on unmeasured factors (network noise dominant?).")
+        # Also check clean model
+    multi_clean = summary.get("multifactor_regression_clean", {})
+    if multi_clean.get("status") == "ok":
+        r2_clean = multi_clean.get("r_squared", 0)
+        if r2_clean > r2 + 0.1:
+            findings.append(f"Clean model (excluding noisy measurements) fits much better: R²={r2_clean} vs {r2}")
 
     # Concurrent connection effect
     by_conn = summary.get("by_extra_connections", {})
@@ -904,17 +1027,35 @@ def generate_findings(summary):
             f"Bottleneck distribution: encoder={ba.get('encoder_bottleneck_count', 0)}, "
             f"bandwidth={ba.get('bandwidth_bottleneck_count', 0)}, "
             f"sensor={ba.get('sensor_bottleneck_count', 0)}, "
+            f"network_noise={ba.get('network_noise_count', 0)}, "
             f"mixed={ba.get('unknown_count', 0)}"
         )
 
     # Time-of-day effect
     by_hour = summary.get("by_hour", {})
-    if len(by_hour) >= 4:
+    if len(by_hour) >= 3:
         best_hour = max(by_hour.items(), key=lambda x: x[1].get("mean", 0))
         worst_hour = min(by_hour.items(), key=lambda x: x[1].get("mean", 999))
         findings.append(
             f"Time-of-day: best hour {best_hour[0]}:00 (mean {best_hour[1]['mean']}fps), "
             f"worst hour {worst_hour[0]}:00 (mean {worst_hour[1]['mean']}fps)"
+        )
+    
+    # Quality/noise findings
+    qm = summary.get("quality_metrics", {})
+    if qm.get("noise_rate", 0) > 0.2:
+        findings.append(
+            f"High noise rate: {qm['noise_rate']*100:.0f}% of measurements are noisy (jitter > {HIGH_JITTER_THRESHOLD_MS}ms). "
+            f"Consider using clean_data model for predictions."
+        )
+    
+    # Network stats findings
+    ns = summary.get("network_stats", {})
+    rtt_stats = ns.get("rtt_ms", {})
+    if rtt_stats.get("count", 0) >= 3:
+        findings.append(
+            f"Network RTT: mean={rtt_stats.get('mean', 0):.0f}ms, "
+            f"range=[{rtt_stats.get('min', 0):.0f}-{rtt_stats.get('max', 0):.0f}]ms"
         )
 
     # Website visitors online effect
@@ -988,11 +1129,23 @@ def main():
 
     # Build full record
     now = datetime.datetime.now()
+    # Compute local hour (CST = UTC+8, server is in UTC+8)
+    local_hour = now.hour
+    # Also compute true UTC hour for consistency
+    import datetime as dt
+    utc_now = datetime.datetime.utcnow()
+    utc_hour = utc_now.hour
+    
+    # Flag noisy measurements based on jitter
+    is_noisy = result.get("jitter_ms", 0) > HIGH_JITTER_THRESHOLD_MS
+    is_valid = result.get("num_frames", 0) >= MIN_FRAMES_FOR_VALID
+    
     record = {
         "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-        "utc_hour": now.hour,
-        "utc_day_of_week": now.weekday(),
-        "utc_is_weekend": now.weekday() >= 5,
+        "utc_hour": utc_hour,
+        "local_hour": local_hour,
+        "utc_day_of_week": utc_now.weekday(),
+        "utc_is_weekend": utc_now.weekday() >= 5,
         **result,
         "network_rtt_ms": rtt,
         "camera_info": camera_info,
@@ -1001,7 +1154,18 @@ def main():
         "strategy": test.get("strategy"),
         "run_number": len(history) + 1,
         "hostname": "zai-2-cron",
+        "quality_flags": {
+            "is_noisy": is_noisy,
+            "is_valid": is_valid,
+            "jitter_ms": result.get("jitter_ms", 0),
+            "rtt_ms": rtt,
+        },
     }
+    
+    if is_noisy:
+        log(f"  WARNING: Measurement is noisy (jitter={result.get('jitter_ms', 0):.0f}ms > {HIGH_JITTER_THRESHOLD_MS}ms threshold)")
+    if not is_valid:
+        log(f"  WARNING: Only {result.get('num_frames', 0)} frames captured (< {MIN_FRAMES_FOR_VALID} minimum)")
 
     # Append to history
     append_record(record)
