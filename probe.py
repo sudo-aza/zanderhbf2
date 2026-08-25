@@ -644,10 +644,12 @@ def build_model_summary(history):
             
             # Clean dataset: exclude noisy/invalid measurements
             quality = rec.get("quality_flags", {})
-            if not quality.get("is_noisy", False) and not quality.get("is_invalid", False):
-                multi_data_clean.append(entry)
-            # Also exclude if no quality_flags (old records) but jitter > 200
-            elif not quality and (rec.get("jitter_ms", 0) or 0) < HIGH_JITTER_THRESHOLD_MS:
+            jitter_raw = rec.get("jitter_ms", 0) or 0
+            is_noisy_record = quality.get("is_noisy", jitter_raw > HIGH_JITTER_THRESHOLD_MS)
+            is_invalid_record = quality.get("is_valid", True)
+            if not is_invalid_record:
+                is_invalid_record = (rec.get("num_frames", 999) or 999) < MIN_FRAMES_FOR_VALID
+            if not is_noisy_record and not is_invalid_record:
                 multi_data_clean.append(entry)
 
     # Run regression on all data (threshold 8 instead of 10 for faster initial results)
@@ -747,6 +749,7 @@ def multi_linear_regression(data, label=""):
         return {"status": "insufficient_data", "label": label}
 
     results = {}
+    fail_info = {}
     
     # Try full 9-feature model first (needs n >= 10 for stability)
     if n >= 10:
@@ -754,32 +757,32 @@ def multi_linear_regression(data, label=""):
         if full_result.get("status") == "ok":
             full_result["label"] = label + "_9feat"
             results["full_9feat"] = full_result
+        else:
+            fail_info["full_9feat"] = full_result.get("status", "unknown")
+    else:
+        fail_info["full_9feat"] = f"need n>=10, have n={n}"
     
-    # Try reduced 6-feature model (always if n >= 8)
-    reduced_result = _fit_regression(data, features="reduced")
-    if reduced_result.get("status") == "ok":
-        reduced_result["label"] = label + "_6feat"
-        results["reduced_6feat"] = reduced_result
+    # Try reduced 6-feature model (always if n >= k=6)
+    if n >= 6:
+        reduced_result = _fit_regression(data, features="reduced")
+        if reduced_result.get("status") == "ok":
+            reduced_result["label"] = label + "_6feat"
+            results["reduced_6feat"] = reduced_result
+        else:
+            fail_info["reduced_6feat"] = reduced_result.get("status", "unknown")
+    else:
+        fail_info["reduced_6feat"] = f"need n>=6, have n={n}"
     
-    # Try minimal 4-feature model (mp, comp, rtt, jitter - no interaction)
+    # Try minimal 4-feature model (mp, comp, rtt, jitter)
     minimal_result = _fit_regression(data, features="minimal")
     if minimal_result.get("status") == "ok":
         minimal_result["label"] = label + "_4feat"
         results["minimal_4feat"] = minimal_result
+    else:
+        fail_info["minimal_4feat"] = minimal_result.get("status", "unknown")
     
     if not results:
-        # Log why each failed
-        fail_reasons = []
-        if n < 10:
-            fail_reasons.append(f"full_9feat: need n>=10, have n={n}")
-        # Try to get actual failure reasons
-        test_full = _fit_regression(data, features="full") if n >= 10 else None
-        test_reduced = _fit_regression(data, features="reduced")
-        test_minimal = _fit_regression(data, features="minimal")
-        for name, res in [("full_9feat", test_full), ("reduced_6feat", test_reduced), ("minimal_4feat", test_minimal)]:
-            if res and res.get("status") != "ok":
-                fail_reasons.append(f"{name}: {res.get('status', '?')}")
-        return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_reasons}
+        return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_info}
     
     # Pick best model by R²
     best_key = max(results, key=lambda k: results[k].get("r_squared", -999))
@@ -787,15 +790,12 @@ def multi_linear_regression(data, label=""):
     best["best_model"] = best_key
     best["label"] = label
     best["n"] = n
-    # Keep all models for comparison, include failures
+    # Keep all models for comparison, include failures with reasons
     all_models = {}
     for k, v in results.items():
         all_models[k] = {"r_squared": v.get("r_squared", 0), "equation": v.get("equation", ""), "status": "ok"}
-    # Also note which models failed
-    for feat_name, label_suffix in [("full", "full_9feat"), ("reduced", "reduced_6feat"), ("minimal", "minimal_4feat")]:
-        key = label_suffix
-        if key not in all_models:
-            all_models[key] = {"status": "not_attempted_or_failed"}
+    for k, reason in fail_info.items():
+        all_models[k] = {"status": reason}
     best["all_models"] = all_models
     return best
 
