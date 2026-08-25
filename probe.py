@@ -645,9 +645,12 @@ def build_model_summary(history):
             # Clean dataset: exclude noisy/invalid measurements
             quality = rec.get("quality_flags", {})
             jitter_raw = rec.get("jitter_ms", 0) or 0
+            # For noisy: use quality_flags if available, else infer from jitter
             is_noisy_record = quality.get("is_noisy", jitter_raw > HIGH_JITTER_THRESHOLD_MS)
-            is_invalid_record = quality.get("is_valid", True)
-            if not is_invalid_record:
+            # For valid: use quality_flags if available, else check frame count directly
+            if quality:
+                is_invalid_record = not quality.get("is_valid", True)
+            else:
                 is_invalid_record = (rec.get("num_frames", 999) or 999) < MIN_FRAMES_FOR_VALID
             if not is_noisy_record and not is_invalid_record:
                 multi_data_clean.append(entry)
