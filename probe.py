@@ -664,14 +664,31 @@ def build_model_summary(history):
 
     # ── Quality metrics ──
     # Track how many measurements are noisy/invalid
-    noisy_count = sum(1 for r in history if r.get("quality_flags", {}).get("is_noisy", False))
-    invalid_count = sum(1 for r in history if not r.get("quality_flags", {}).get("is_valid", True))
+    # For old records without quality_flags, infer from jitter directly
+    noisy_count = 0
+    invalid_count = 0
+    noisy_indices = []
+    for idx, r in enumerate(history):
+        qf = r.get("quality_flags", {})
+        if qf:
+            if qf.get("is_noisy", False):
+                noisy_count += 1
+                noisy_indices.append(idx + 1)
+            if not qf.get("is_valid", True):
+                invalid_count += 1
+        else:
+            # Infer from raw jitter for records before quality_flags existed
+            jitter_val = r.get("jitter_ms", 0) or 0
+            if jitter_val > HIGH_JITTER_THRESHOLD_MS:
+                noisy_count += 1
+                noisy_indices.append(idx + 1)
     summary["quality_metrics"] = {
         "total_measurements": total,
         "noisy_count": noisy_count,
         "invalid_count": invalid_count,
         "clean_count": total - noisy_count,
         "noise_rate": round(noisy_count / total, 3) if total > 0 else 0,
+        "noisy_run_numbers": noisy_indices,
     }
     
     # ── RTT and jitter stats ──
@@ -751,7 +768,18 @@ def multi_linear_regression(data, label=""):
         results["minimal_4feat"] = minimal_result
     
     if not results:
-        return {"status": "all_models_failed", "n": n, "label": label}
+        # Log why each failed
+        fail_reasons = []
+        if n < 10:
+            fail_reasons.append(f"full_9feat: need n>=10, have n={n}")
+        # Try to get actual failure reasons
+        test_full = _fit_regression(data, features="full") if n >= 10 else None
+        test_reduced = _fit_regression(data, features="reduced")
+        test_minimal = _fit_regression(data, features="minimal")
+        for name, res in [("full_9feat", test_full), ("reduced_6feat", test_reduced), ("minimal_4feat", test_minimal)]:
+            if res and res.get("status") != "ok":
+                fail_reasons.append(f"{name}: {res.get('status', '?')}")
+        return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_reasons}
     
     # Pick best model by R²
     best_key = max(results, key=lambda k: results[k].get("r_squared", -999))
@@ -759,9 +787,16 @@ def multi_linear_regression(data, label=""):
     best["best_model"] = best_key
     best["label"] = label
     best["n"] = n
-    # Keep all models for comparison
-    best["all_models"] = {k: {"r_squared": v.get("r_squared", 0), "equation": v.get("equation", "")} 
-                           for k, v in results.items()}
+    # Keep all models for comparison, include failures
+    all_models = {}
+    for k, v in results.items():
+        all_models[k] = {"r_squared": v.get("r_squared", 0), "equation": v.get("equation", ""), "status": "ok"}
+    # Also note which models failed
+    for feat_name, label_suffix in [("full", "full_9feat"), ("reduced", "reduced_6feat"), ("minimal", "minimal_4feat")]:
+        key = label_suffix
+        if key not in all_models:
+            all_models[key] = {"status": "not_attempted_or_failed"}
+    best["all_models"] = all_models
     return best
 
 
@@ -1132,8 +1167,7 @@ def main():
     # Compute local hour (CST = UTC+8, server is in UTC+8)
     local_hour = now.hour
     # Also compute true UTC hour for consistency
-    import datetime as dt
-    utc_now = datetime.datetime.utcnow()
+    utc_now = datetime.datetime.now(datetime.timezone.utc)
     utc_hour = utc_now.hour
     
     # Flag noisy measurements based on jitter
