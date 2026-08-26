@@ -1,11 +1,11 @@
 {
   "status": "ok",
-  "total_measurements": 21,
-  "last_updated": "2026-08-26T14:02:12.510654",
+  "total_measurements": 22,
+  "last_updated": "2026-08-26T15:02:19.711974",
   "global_fps": {
-    "count": 21,
-    "mean": 16.5393,
-    "std": 9.1807,
+    "count": 22,
+    "mean": 16.1087,
+    "std": 9.1841,
     "min": 0.4682,
     "max": 25.0712,
     "median": 20.3236
@@ -44,12 +44,12 @@
       "median": 8.8324
     },
     "320x180": {
-      "count": 1,
-      "mean": 0.4682,
-      "std": 0,
+      "count": 2,
+      "mean": 3.7672,
+      "std": 3.299,
       "min": 0.4682,
-      "max": 0.4682,
-      "median": 0.4682
+      "max": 7.0662,
+      "median": 7.0662
     }
   },
   "by_compression": {
@@ -62,12 +62,12 @@
       "median": 8.8324
     },
     "25": {
-      "count": 4,
-      "mean": 17.2763,
-      "std": 9.1888,
+      "count": 5,
+      "mean": 15.2343,
+      "std": 9.1775,
       "min": 2.1901,
       "max": 25.0364,
-      "median": 24.3372
+      "median": 17.5414
     },
     "50": {
       "count": 4,
@@ -159,6 +159,14 @@
       "max": 0.4682,
       "median": 0.4682
     },
+    "15": {
+      "count": 1,
+      "mean": 7.0662,
+      "std": 0,
+      "min": 7.0662,
+      "max": 7.0662,
+      "median": 7.0662
+    },
     "18": {
       "count": 1,
       "mean": 4.1308,
@@ -210,9 +218,9 @@
   },
   "by_extra_connections": {
     "0": {
-      "count": 21,
-      "mean": 16.5393,
-      "std": 9.1807,
+      "count": 22,
+      "mean": 16.1087,
+      "std": 9.1841,
       "min": 0.4682,
       "max": 25.0712,
       "median": 20.3236
@@ -228,10 +236,10 @@
       "median": 24.0618
     },
     "2": {
-      "count": 3,
-      "mean": 22.6289,
-      "std": 1.7628,
-      "min": 20.3236,
+      "count": 4,
+      "mean": 18.7382,
+      "std": 6.9096,
+      "min": 7.0662,
       "max": 24.6033,
       "median": 22.9598
     },
@@ -262,9 +270,9 @@
   },
   "by_phase": {
     "1": {
-      "count": 21,
-      "mean": 16.5393,
-      "std": 9.1807,
+      "count": 22,
+      "mean": 16.1087,
+      "std": 9.1841,
       "min": 0.4682,
       "max": 25.0712,
       "median": 20.3236
@@ -279,11 +287,11 @@
       "equation": "FPS = -214.4073 * MP + 16.52 (R\u00b2=0.2043)"
     },
     "25": {
-      "slope": -731.364424,
-      "intercept": 35.9524,
-      "r_squared": 0.754196,
-      "n": 4,
-      "equation": "FPS = -731.3644 * MP + 35.95 (R\u00b2=0.7542)"
+      "slope": -469.84536,
+      "intercept": 30.2453,
+      "r_squared": 0.680759,
+      "n": 5,
+      "equation": "FPS = -469.8454 * MP + 30.25 (R\u00b2=0.6808)"
     },
     "50": {
       "slope": 109.540185,
@@ -309,25 +317,25 @@
   },
   "multifactor_regression": {
     "status": "ok",
-    "n": 21,
+    "n": 22,
     "k": 5,
     "coefficients": {
-      "intercept": 24.890464,
-      "megapixels": -3.860901,
-      "compression": 0.098151,
-      "rtt_s": -7.043225,
-      "jitter_s": -46.205574
+      "intercept": 25.129131,
+      "megapixels": -65.250553,
+      "compression": 0.099496,
+      "rtt_s": -6.198417,
+      "jitter_s": -43.229539
     },
-    "r_squared": 0.753964,
-    "mae": 3.5337,
-    "rmse": 4.5538,
-    "equation": "FPS = 24.890 + -3.8609*megapixels + 0.0982*compression + -7.0432*rtt + -46.2056*jitter (R\u00b2=0.7540, RMSE=4.554)",
+    "r_squared": 0.747716,
+    "mae": 3.5286,
+    "rmse": 4.613,
+    "equation": "FPS = 25.129 + -65.2506*megapixels + 0.0995*compression + -6.1984*rtt + -43.2295*jitter (R\u00b2=0.7477, RMSE=4.613)",
     "label": "all_data",
     "best_model": "minimal_4feat",
     "all_models": {
       "minimal_4feat": {
-        "r_squared": 0.753964,
-        "equation": "FPS = 24.890 + -3.8609*megapixels + 0.0982*compression + -7.0432*rtt + -46.2056*jitter (R\u00b2=0.7540, RMSE=4.554)",
+        "r_squared": 0.747716,
+        "equation": "FPS = 25.129 + -65.2506*megapixels + 0.0995*compression + -6.1984*rtt + -43.2295*jitter (R\u00b2=0.7477, RMSE=4.613)",
         "status": "ok"
       },
       "full_9feat": {
@@ -373,53 +381,54 @@
     "encoder_bottleneck_count": 1,
     "bandwidth_bottleneck_count": 0,
     "sensor_bottleneck_count": 0,
-    "network_noise_count": 5,
+    "network_noise_count": 6,
     "unknown_count": 15
   },
   "quality_metrics": {
-    "total_measurements": 21,
-    "noisy_count": 5,
+    "total_measurements": 22,
+    "noisy_count": 6,
     "invalid_count": 0,
     "clean_count": 16,
-    "noise_rate": 0.238,
+    "noise_rate": 0.273,
     "noisy_run_numbers": [
       8,
       13,
       17,
       19,
-      21
+      21,
+      22
     ]
   },
   "network_stats": {
     "rtt_ms": {
-      "count": 21,
-      "mean": 771.8833,
-      "std": 229.2917,
+      "count": 22,
+      "mean": 760.6155,
+      "std": 229.8938,
       "min": 480.64,
       "max": 1530.19,
       "median": 774.0
     },
     "jitter_ms": {
-      "count": 21,
-      "mean": 161.9714,
-      "std": 138.7366,
+      "count": 22,
+      "mean": 163.8923,
+      "std": 135.8324,
       "min": 39.07,
       "max": 623.98,
-      "median": 105.72
+      "median": 114.16
     }
   },
   "key_findings": [
     "Best FPS: 25.0712 at resolution 160x90 (mean: 20.1357, 5 tests)",
-    "Worst mean FPS: 0.4682 at resolution 320x180",
+    "Worst mean FPS: 3.7672 at resolution 320x180",
     "Compression effect: c0=9.6651fps, c50=14.2908fps, c100=24.1952fps",
-    "Model: FPS = 24.890 + -3.8609*megapixels + 0.0982*compression + -7.0432*rtt + -46.2056*jitter (R\u00b2=0.7540, RMSE=4.554)",
+    "Model: FPS = 25.129 + -65.2506*megapixels + 0.0995*compression + -6.1984*rtt + -43.2295*jitter (R\u00b2=0.7477, RMSE=4.613)",
     "Best model variant: minimal_4feat",
-    "Moderate model fit (R\u00b2=0.753964). Missing factors (time-of-day, network load?).",
-    "Clean model (excluding noisy measurements) fits much better: R\u00b2=0.871005 vs 0.753964",
-    "Bottleneck distribution: encoder=1, bandwidth=0, sensor=0, network_noise=5, mixed=15",
+    "Moderate model fit (R\u00b2=0.747716). Missing factors (time-of-day, network load?).",
+    "Clean model (excluding noisy measurements) fits much better: R\u00b2=0.871005 vs 0.747716",
+    "Bottleneck distribution: encoder=1, bandwidth=0, sensor=0, network_noise=6, mixed=15",
     "Time-of-day: best hour 1:00 (mean 25.0364fps), worst hour 14:00 (mean 0.4682fps)",
-    "High noise rate: 24% of measurements are noisy (jitter > 200ms). Consider using clean_data model for predictions.",
-    "Network RTT: mean=772ms, range=[481-1530]ms",
+    "High noise rate: 27% of measurements are noisy (jitter > 200ms). Consider using clean_data model for predictions.",
+    "Network RTT: mean=761ms, range=[481-1530]ms",
     "Website visitors online: 1 users \u2192 22.698fps, 6 users \u2192 0.4682fps"
   ]
 }
