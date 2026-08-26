@@ -1138,6 +1138,9 @@ def git_commit_push(repo_dir, message):
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
+MAX_RETRIES = 1  # retry once if measurement is noisy
+RETRY_WAIT_S = 30  # seconds to wait before retry (let network conditions change)
+
 def main():
     log("=== zanderhbf2 probe starting ===")
 
@@ -1157,13 +1160,42 @@ def main():
     website_visitors = get_website_visitors()
     log(f"Website visitors online: {website_visitors.get('users_online', '?')}")
 
-    # Run the probe
-    result = probe_mjpeg(
-        resolution=test["resolution"],
-        compression=test["compression"],
-        duration=CAPTURE_DURATION,
-        extra_connections=test["extra_connections"],
-    )
+    # Run the probe (with retry on noisy measurement)
+    result = None
+    is_noisy = False
+    is_valid = False
+    attempt = 0
+    while attempt <= MAX_RETRIES:
+        if attempt > 0:
+            log(f"Retry #{attempt}: waiting {RETRY_WAIT_S}s before re-probing...")
+            time.sleep(RETRY_WAIT_S)
+            # Re-measure RTT and visitors for the retry
+            rtt = measure_rtt()
+            log(f"RTT before retry: {rtt}ms")
+            website_visitors = get_website_visitors()
+            log(f"Website visitors before retry: {website_visitors.get('users_online', '?')}")
+        
+        result = probe_mjpeg(
+            resolution=test["resolution"],
+            compression=test["compression"],
+            duration=CAPTURE_DURATION,
+            extra_connections=test["extra_connections"],
+        )
+        
+        is_noisy = result.get("jitter_ms", 0) > HIGH_JITTER_THRESHOLD_MS
+        is_valid = result.get("num_frames", 0) >= MIN_FRAMES_FOR_VALID
+        
+        if is_noisy and attempt < MAX_RETRIES:
+            log(f"  WARNING: Measurement is noisy (jitter={result.get('jitter_ms', 0):.0f}ms > {HIGH_JITTER_THRESHOLD_MS}ms threshold)")
+            attempt += 1
+            continue
+        
+        if not is_valid and attempt < MAX_RETRIES:
+            log(f"  WARNING: Only {result.get('num_frames', 0)} frames captured (< {MIN_FRAMES_FOR_VALID} minimum)")
+            attempt += 1
+            continue
+        
+        break  # measurement is clean or out of retries
 
     # Build full record
     now = datetime.datetime.now()
@@ -1196,13 +1228,14 @@ def main():
             "is_valid": is_valid,
             "jitter_ms": result.get("jitter_ms", 0),
             "rtt_ms": rtt,
+            "attempt": attempt,  # 0 = first try, 1 = retry
         },
     }
     
     if is_noisy:
-        log(f"  WARNING: Measurement is noisy (jitter={result.get('jitter_ms', 0):.0f}ms > {HIGH_JITTER_THRESHOLD_MS}ms threshold)")
+        log(f"  FINAL WARNING: Measurement still noisy after {attempt} attempt(s)")
     if not is_valid:
-        log(f"  WARNING: Only {result.get('num_frames', 0)} frames captured (< {MIN_FRAMES_FOR_VALID} minimum)")
+        log(f"  FINAL WARNING: Measurement still invalid after {attempt} attempt(s)")
 
     # Append to history
     append_record(record)
