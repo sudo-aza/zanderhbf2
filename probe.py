@@ -783,6 +783,15 @@ def multi_linear_regression(data, label=""):
         results["minimal_4feat"] = minimal_result
     else:
         fail_info["minimal_4feat"] = minimal_result.get("status", "unknown")
+
+    # Try minimal 5-feature model (mp, comp, mp*comp, rtt, jitter)
+    # Key interaction: compression alleviates the resolution penalty
+    minimal5_result = _fit_regression(data, features="minimal5")
+    if minimal5_result.get("status") == "ok":
+        minimal5_result["label"] = label + "_5feat"
+        results["minimal_5feat"] = minimal5_result
+    else:
+        fail_info["minimal_5feat"] = minimal5_result.get("status", "unknown")
     
     if not results:
         return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_info}
@@ -834,6 +843,9 @@ def _fit_regression(data, features="reduced"):
         elif features == "minimal":
             row = [1, mp, comp, rtt, jitter]
             feature_names = ["intercept", "megapixels", "compression", "rtt_s", "jitter_s"]
+        elif features == "minimal5":
+            row = [1, mp, comp, mp * comp, rtt, jitter]
+            feature_names = ["intercept", "megapixels", "compression", "mp_x_compression", "rtt_s", "jitter_s"]
         else:  # reduced
             row = [1, mp, comp, conn, mp * comp, online]
             feature_names = ["intercept", "megapixels", "compression", "connections",
