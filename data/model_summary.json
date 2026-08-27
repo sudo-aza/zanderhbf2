@@ -1,11 +1,11 @@
 {
   "status": "ok",
-  "total_measurements": 27,
-  "last_updated": "2026-08-27T09:16:17.759674",
+  "total_measurements": 28,
+  "last_updated": "2026-08-27T09:31:16.601023",
   "global_fps": {
-    "count": 27,
-    "mean": 14.2339,
-    "std": 9.5651,
+    "count": 28,
+    "mean": 13.9922,
+    "std": 9.4763,
     "min": 0.2187,
     "max": 25.0712,
     "median": 17.5414
@@ -52,11 +52,11 @@
       "median": 4.1944
     },
     "320x240": {
-      "count": 2,
-      "mean": 3.4687,
-      "std": 3.25,
+      "count": 3,
+      "mean": 4.8012,
+      "std": 3.2547,
       "min": 0.2187,
-      "max": 6.7187,
+      "max": 7.4663,
       "median": 6.7187
     }
   },
@@ -78,9 +78,9 @@
       "median": 17.5414
     },
     "50": {
-      "count": 5,
-      "mean": 11.6579,
-      "std": 9.3674,
+      "count": 6,
+      "mean": 10.9593,
+      "std": 8.6927,
       "min": 1.1266,
       "max": 25.0712,
       "median": 7.6375
@@ -128,12 +128,12 @@
       "median": 17.5414
     },
     "9": {
-      "count": 1,
-      "mean": 6.7187,
-      "std": 0,
+      "count": 2,
+      "mean": 7.0925,
+      "std": 0.3738,
       "min": 6.7187,
-      "max": 6.7187,
-      "median": 6.7187
+      "max": 7.4663,
+      "median": 7.4663
     },
     "10": {
       "count": 2,
@@ -242,9 +242,9 @@
   },
   "by_extra_connections": {
     "0": {
-      "count": 27,
-      "mean": 14.2339,
-      "std": 9.5651,
+      "count": 28,
+      "mean": 13.9922,
+      "std": 9.4763,
       "min": 0.2187,
       "max": 25.0712,
       "median": 17.5414
@@ -260,12 +260,12 @@
       "median": 24.0618
     },
     "2": {
-      "count": 4,
-      "mean": 18.7382,
-      "std": 6.9096,
+      "count": 5,
+      "mean": 16.4838,
+      "std": 7.65,
       "min": 7.0662,
       "max": 24.6033,
-      "median": 22.9598
+      "median": 20.3236
     },
     "3": {
       "count": 8,
@@ -302,9 +302,9 @@
   },
   "by_phase": {
     "1": {
-      "count": 27,
-      "mean": 14.2339,
-      "std": 9.5651,
+      "count": 28,
+      "mean": 13.9922,
+      "std": 9.4763,
       "min": 0.2187,
       "max": 25.0712,
       "median": 17.5414
@@ -326,11 +326,11 @@
       "equation": "FPS = -312.0826 * MP + 26.12 (R\u00b2=0.6017)"
     },
     "50": {
-      "slope": -219.846936,
-      "intercept": 18.6818,
-      "r_squared": 0.143067,
-      "n": 5,
-      "equation": "FPS = -219.8469 * MP + 18.68 (R\u00b2=0.1431)"
+      "slope": -148.629411,
+      "intercept": 16.8189,
+      "r_squared": 0.144957,
+      "n": 6,
+      "equation": "FPS = -148.6294 * MP + 16.82 (R\u00b2=0.1450)"
     },
     "75": {
       "slope": -315.495278,
@@ -349,25 +349,25 @@
   },
   "multifactor_regression": {
     "status": "ok",
-    "n": 27,
+    "n": 28,
     "k": 5,
     "coefficients": {
-      "intercept": 25.223749,
-      "megapixels": -136.84913,
-      "compression": 0.089946,
-      "rtt_s": -7.592911,
-      "jitter_s": -21.704135
+      "intercept": 25.421313,
+      "megapixels": -162.614183,
+      "compression": 0.088859,
+      "rtt_s": -7.234941,
+      "jitter_s": -20.04212
     },
-    "r_squared": 0.673405,
-    "mae": 4.4201,
-    "rmse": 5.4663,
-    "equation": "FPS = 25.224 + -136.8491*megapixels + 0.0899*compression + -7.5929*rtt + -21.7041*jitter (R\u00b2=0.6734, RMSE=5.466)",
+    "r_squared": 0.67203,
+    "mae": 4.3607,
+    "rmse": 5.4269,
+    "equation": "FPS = 25.421 + -162.6142*megapixels + 0.0889*compression + -7.2349*rtt + -20.0421*jitter (R\u00b2=0.6720, RMSE=5.427)",
     "label": "all_data",
     "best_model": "minimal_4feat",
     "all_models": {
       "minimal_4feat": {
-        "r_squared": 0.673405,
-        "equation": "FPS = 25.224 + -136.8491*megapixels + 0.0899*compression + -7.5929*rtt + -21.7041*jitter (R\u00b2=0.6734, RMSE=5.466)",
+        "r_squared": 0.67203,
+        "equation": "FPS = 25.421 + -162.6142*megapixels + 0.0889*compression + -7.2349*rtt + -20.0421*jitter (R\u00b2=0.6720, RMSE=5.427)",
         "status": "ok"
       },
       "full_9feat": {
@@ -380,25 +380,25 @@
   },
   "multifactor_regression_clean": {
     "status": "ok",
-    "n": 18,
+    "n": 19,
     "k": 5,
     "coefficients": {
-      "intercept": 26.237474,
-      "megapixels": -96.435391,
-      "compression": 0.113306,
-      "rtt_s": 3.719469,
-      "jitter_s": -123.277731
+      "intercept": 26.399358,
+      "megapixels": -112.36023,
+      "compression": 0.112648,
+      "rtt_s": 4.123727,
+      "jitter_s": -123.980027
     },
-    "r_squared": 0.899824,
-    "mae": 1.6815,
-    "rmse": 2.1432,
-    "equation": "FPS = 26.237 + -96.4354*megapixels + 0.1133*compression + 3.7195*rtt + -123.2777*jitter (R\u00b2=0.8998, RMSE=2.143)",
+    "r_squared": 0.908912,
+    "mae": 1.7386,
+    "rmse": 2.1521,
+    "equation": "FPS = 26.399 + -112.3602*megapixels + 0.1126*compression + 4.1237*rtt + -123.9800*jitter (R\u00b2=0.9089, RMSE=2.152)",
     "label": "clean_data",
     "best_model": "minimal_4feat",
     "all_models": {
       "minimal_4feat": {
-        "r_squared": 0.899824,
-        "equation": "FPS = 26.237 + -96.4354*megapixels + 0.1133*compression + 3.7195*rtt + -123.2777*jitter (R\u00b2=0.8998, RMSE=2.143)",
+        "r_squared": 0.908912,
+        "equation": "FPS = 26.399 + -112.3602*megapixels + 0.1126*compression + 4.1237*rtt + -123.9800*jitter (R\u00b2=0.9089, RMSE=2.152)",
         "status": "ok"
       },
       "full_9feat": {
@@ -414,14 +414,14 @@
     "bandwidth_bottleneck_count": 0,
     "sensor_bottleneck_count": 0,
     "network_noise_count": 9,
-    "unknown_count": 17
+    "unknown_count": 18
   },
   "quality_metrics": {
-    "total_measurements": 27,
+    "total_measurements": 28,
     "noisy_count": 9,
     "invalid_count": 1,
-    "clean_count": 18,
-    "noise_rate": 0.333,
+    "clean_count": 19,
+    "noise_rate": 0.321,
     "noisy_run_numbers": [
       8,
       13,
@@ -436,34 +436,34 @@
   },
   "network_stats": {
     "rtt_ms": {
-      "count": 27,
-      "mean": 746.9707,
-      "std": 220.1787,
+      "count": 28,
+      "mean": 738.6589,
+      "std": 220.4827,
       "min": 480.64,
       "max": 1530.19,
       "median": 717.02
     },
     "jitter_ms": {
-      "count": 27,
-      "mean": 218.3367,
-      "std": 218.7168,
+      "count": 28,
+      "mean": 215.2021,
+      "std": 215.3924,
       "min": 39.07,
       "max": 1005.81,
-      "median": 122.2
+      "median": 126.94
     }
   },
   "key_findings": [
     "Best FPS: 25.0712 at resolution 160x90 (mean: 20.1357, 5 tests)",
-    "Worst mean FPS: 3.4687 at resolution 320x240",
-    "Compression effect: c0=8.0907fps, c50=11.6579fps, c100=20.1951fps",
-    "Model: FPS = 25.224 + -136.8491*megapixels + 0.0899*compression + -7.5929*rtt + -21.7041*jitter (R\u00b2=0.6734, RMSE=5.466)",
+    "Worst mean FPS: 4.8012 at resolution 320x240",
+    "Compression effect: c0=8.0907fps, c50=10.9593fps, c100=20.1951fps",
+    "Model: FPS = 25.421 + -162.6142*megapixels + 0.0889*compression + -7.2349*rtt + -20.0421*jitter (R\u00b2=0.6720, RMSE=5.427)",
     "Best model variant: minimal_4feat",
-    "Moderate model fit (R\u00b2=0.673405). Missing factors (time-of-day, network load?).",
-    "Clean model (excluding noisy measurements) fits much better: R\u00b2=0.899824 vs 0.673405",
-    "Bottleneck distribution: encoder=1, bandwidth=0, sensor=0, network_noise=9, mixed=17",
+    "Moderate model fit (R\u00b2=0.67203). Missing factors (time-of-day, network load?).",
+    "Clean model (excluding noisy measurements) fits much better: R\u00b2=0.908912 vs 0.67203",
+    "Bottleneck distribution: encoder=1, bandwidth=0, sensor=0, network_noise=9, mixed=18",
     "Time-of-day: best hour 1:00 (mean 25.0364fps), worst hour 16:00 (mean 0.2187fps)",
-    "High noise rate: 33% of measurements are noisy (jitter > 200ms). Consider using clean_data model for predictions.",
-    "Network RTT: mean=747ms, range=[481-1530]ms",
+    "High noise rate: 32% of measurements are noisy (jitter > 200ms). Consider using clean_data model for predictions.",
+    "Network RTT: mean=739ms, range=[481-1530]ms",
     "Website visitors online: 1 users \u2192 20.7006fps, 6 users \u2192 0.4682fps"
   ]
 }
