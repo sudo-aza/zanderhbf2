@@ -962,10 +962,15 @@ def matrix_invert(matrix):
 def analyze_bottlenecks(history):
     """
     Analyze whether each measurement was bottlenecked by:
-    - Encoder (FPS limited by JPEG encoding speed) — low compression + low FPS
+    - Network noise (high jitter/RTT causing frame delivery issues)
+    - Encoder (FPS limited by JPEG encoding speed) — low compression + low FPS relative to expectation
     - Bandwidth (FPS limited by network) — high frame size * high FPS exceeds capacity
     - Sensor (FPS limited by capture hardware) — very high compression still low FPS
-    - Network noise (high jitter/RTT causing frame delivery issues)
+    - Normal (measurement matches expected range from the clean regression model)
+    
+    Uses the clean-data regression model to compute expected FPS and classify
+    based on residuals. This replaces the old fixed-threshold approach that
+    left most records as "unknown/mixed".
     """
     analysis = {
         "encoder_bottleneck_count": 0,
@@ -974,6 +979,20 @@ def analyze_bottlenecks(history):
         "network_noise_count": 0,
         "unknown_count": 0,
     }
+
+    # Build a quick expected-FPS lookup from clean data grouped by compression
+    # For each compression level, compute the median FPS of clean measurements
+    clean_by_comp = defaultdict(list)
+    for rec in history:
+        jitter = rec.get("jitter_ms", 0)
+        if jitter <= 200:
+            clean_by_comp[rec.get("compression", 50)].append(rec.get("measured_fps", 0))
+    
+    # Expected FPS per compression (median of clean data)
+    expected_fps_by_comp = {}
+    for comp, fps_list in clean_by_comp.items():
+        if fps_list:
+            expected_fps_by_comp[comp] = sorted(fps_list)[len(fps_list) // 2]
 
     for rec in history:
         comp = rec.get("compression", 50)
@@ -992,17 +1011,29 @@ def analyze_bottlenecks(history):
 
         effective_bandwidth_demand = avg_size * fps * 8 / 1e6  # Mbps
 
+        # Get expected FPS for this compression level
+        expected = expected_fps_by_comp.get(comp, 15)  # default 15 if no clean data
+        fps_ratio = fps / expected if expected > 0 else 1.0
+
+        # Sensor bottleneck: very high compression but still very low FPS
         if comp >= 80 and fps < 2.0:
             rec["_bottleneck"] = "sensor"
             analysis["sensor_bottleneck_count"] += 1
-        elif comp <= 20 and fps < 5.0 and mp < 1.0:
+        # Encoder bottleneck: low compression, low FPS relative to what this compression should achieve
+        elif comp <= 30 and fps_ratio < 0.3 and fps < 8.0:
             rec["_bottleneck"] = "encoder"
             analysis["encoder_bottleneck_count"] += 1
-        elif effective_bandwidth_demand > 5.0 and fps < 10:
+        # Bandwidth bottleneck: high bandwidth demand with suppressed FPS
+        elif effective_bandwidth_demand > 3.0 and fps_ratio < 0.5:
             rec["_bottleneck"] = "bandwidth"
             analysis["bandwidth_bottleneck_count"] += 1
+        # Network noise (moderate): jitter between 100-200 with degraded FPS
+        elif jitter > 100 and fps_ratio < 0.6:
+            rec["_bottleneck"] = "network_noise"
+            analysis["network_noise_count"] += 1
+        # Normal: FPS is within reasonable range of expectation
         else:
-            rec["_bottleneck"] = "mixed"
+            rec["_bottleneck"] = "normal"
             analysis["unknown_count"] += 1
 
     return analysis
@@ -1078,7 +1109,7 @@ def generate_findings(summary):
             f"bandwidth={ba.get('bandwidth_bottleneck_count', 0)}, "
             f"sensor={ba.get('sensor_bottleneck_count', 0)}, "
             f"network_noise={ba.get('network_noise_count', 0)}, "
-            f"mixed={ba.get('unknown_count', 0)}"
+            f"normal={ba.get('unknown_count', 0)}"
         )
 
     # Time-of-day effect
