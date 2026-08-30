@@ -823,7 +823,7 @@ def build_model_summary(history):
     # Run PLANNING model on clean data — no jitter/RTT features
     # Only uses resolution, compression, time-of-day (knowable ahead of time)
     if len(multi_data_clean) >= 7:
-        summary["planning_model"] = multi_linear_regression(multi_data_clean, label="planning")
+        summary["planning_model"] = multi_linear_regression(multi_data_clean, label="planning", force_variant="planning_tod")
 
     # ── Bottleneck analysis ──
     # Identify whether encoder or bandwidth is the bottleneck per measurement
@@ -929,12 +929,10 @@ def simple_linear_regression(pairs):
     }
 
 
-def multi_linear_regression(data, label=""):
+def multi_linear_regression(data, label="", force_variant=None):
     """
-    Multiple regression with 9 features:
-      FPS = a + b*mp + c*comp + d*conn + e*mp*comp + f*online + g*rtt + h*jitter + i*sin(hour)
-    Using normal equation (no external deps).
-    Also tries a reduced 6-feature model if 9-feature is underdetermined.
+    Multiple regression with several feature sets.
+    force_variant: if set, return only that variant (e.g. "planning_tod") instead of picking best R².
     """
     n = len(data)
     if n < 6:
@@ -1025,7 +1023,25 @@ def multi_linear_regression(data, label=""):
 
     if not results:
         return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_info}
-    
+
+    # If force_variant is set, return only that variant
+    if force_variant:
+        if force_variant in results:
+            forced = results[force_variant]
+            forced["best_model"] = force_variant
+            forced["label"] = label
+            forced["n"] = n
+            # Include all model comparison
+            all_models = {}
+            for k, v in results.items():
+                all_models[k] = {"r_squared": v.get("r_squared", 0), "status": "ok"}
+            for k, reason in fail_info.items():
+                all_models[k] = {"status": reason}
+            forced["all_models"] = all_models
+            return forced
+        else:
+            return {"status": "forced_variant_failed", "variant": force_variant, "reason": fail_info.get(force_variant, "not attempted"), "label": label}
+
     # Pick best model by R²
     best_key = max(results, key=lambda k: results[k].get("r_squared", -999))
     best = results[best_key]
