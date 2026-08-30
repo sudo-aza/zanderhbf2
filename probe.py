@@ -1204,12 +1204,29 @@ def git_commit_push(repo_dir, message):
 MAX_RETRIES = 1  # retry once if measurement is noisy
 RETRY_WAIT_S = 30  # seconds to wait before retry (let network conditions change)
 
+# Known network noise window: 07:00-09:00 UTC (15:00-17:00 UTC+8)
+# During this window, jitter consistently exceeds 200ms, making measurements useless.
+# Data from runs #67-#71 confirms this pattern (jitter 400-1550ms, FPS 0.2-0.4).
+NOISE_WINDOW_START_UTC = 7
+NOISE_WINDOW_END_UTC = 9
+RTT_ABORT_THRESHOLD_MS = 600  # if initial RTT exceeds this, don't even try probing
+JITTER_HARD_ABORT_MS = 500  # if final jitter exceeds this, don't record the data point
+
 def main():
     log("=== zanderhbf2 probe starting ===")
 
     history = load_history()
     plan = load_plan()
     log(f"History: {len(history)} measurements")
+
+    # Check if we're in the known noise window
+    utc_now = datetime.datetime.now(datetime.timezone.utc)
+    utc_hour = utc_now.hour
+    if NOISE_WINDOW_START_UTC <= utc_hour < NOISE_WINDOW_END_UTC:
+        log(f"ABORT: Current UTC hour {utc_hour} is in known noise window ({NOISE_WINDOW_START_UTC}:00-{NOISE_WINDOW_END_UTC}:00 UTC). Skipping this run.")
+        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: noise window abort (UTC {utc_hour}:00)")
+        log("=== zanderhbf2 probe complete (skipped) ===")
+        return None
 
     # Design next test
     test = design_next_test(history, plan)
@@ -1219,6 +1236,14 @@ def main():
     # Measure environmental factors
     rtt = measure_rtt()
     log(f"RTT: {rtt}ms")
+
+    # Pre-check: if RTT is extremely high, the network is unusable — abort
+    if rtt > RTT_ABORT_THRESHOLD_MS:
+        log(f"ABORT: RTT {rtt}ms exceeds {RTT_ABORT_THRESHOLD_MS}ms threshold. Network is too congested.")
+        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: high RTT abort ({rtt}ms)")
+        log("=== zanderhbf2 probe complete (skipped) ===")
+        return None
+
     camera_info = get_camera_temperature()
     website_visitors = get_website_visitors()
     log(f"Website visitors online: {website_visitors.get('users_online', '?')}")
@@ -1299,6 +1324,14 @@ def main():
         log(f"  FINAL WARNING: Measurement still noisy after {attempt} attempt(s)")
     if not is_valid:
         log(f"  FINAL WARNING: Measurement still invalid after {attempt} attempt(s)")
+
+    # Hard abort: if jitter is catastrophically high, don't pollute the dataset
+    final_jitter = result.get("jitter_ms", 0)
+    if final_jitter > JITTER_HARD_ABORT_MS:
+        log(f"ABORT: Final jitter {final_jitter:.0f}ms exceeds {JITTER_HARD_ABORT_MS}ms hard limit. Not recording.")
+        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: hard jitter abort ({final_jitter:.0f}ms)")
+        log("=== zanderhbf2 probe complete (discarded) ===")
+        return None
 
     # Append to history
     append_record(record)
