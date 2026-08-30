@@ -1246,13 +1246,12 @@ def git_commit_push(repo_dir, message):
 MAX_RETRIES = 1  # retry once if measurement is noisy
 RETRY_WAIT_S = 30  # seconds to wait before retry (let network conditions change)
 
-# Known network noise window: ~07:30-11:00 UTC (15:30-19:00 UTC+8)
+# Known network noise window: ~07:30-11:30 UTC (15:30-19:30 UTC+8)
 # During this window, jitter frequently exceeds 200ms, making measurements useless.
-# Evidence: runs at 07:00-10:30 UTC all had >500ms jitter on full probe.
-# Even at 10:30 UTC pre-check was 108ms but full probe got 1181ms jitter.
+# Evidence: 07:00-10:30 UTC full probes all >500ms jitter; pre-check at 11:00 still 318ms.
 # Run #65 (UTC 7:00) was clean (jitter=181ms), so start at 7:30.
 NOISE_WINDOW_START_UTC = 7.5   # 07:30 UTC
-NOISE_WINDOW_END_UTC = 11    # 11:00 UTC
+NOISE_WINDOW_END_UTC = 11.5  # 11:30 UTC
 QUICK_JITTER_ABORT_MS = 200  # if 5s pre-check jitter exceeds this, skip full probe
 JITTER_HARD_ABORT_MS = 500   # if final jitter exceeds this, don't record the data point
 
