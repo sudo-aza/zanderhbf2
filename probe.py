@@ -122,6 +122,48 @@ def measure_rtt():
         return None
 
 
+def quick_jitter_check(duration_s=5):
+    """Quick 5-second probe at smallest resolution to estimate network jitter.
+    Returns jitter in ms, or None if the camera is unreachable.
+    This is used as a pre-check before the full 35s probe."""
+    try:
+        url = (f"{CAMERA_STREAM}?resolution=160x90&compression=90&fps=30")
+        req = urllib.request.Request(url)
+        req.add_header("User-Agent", "zanderhbf2-probe/1.0")
+        resp = urllib.request.urlopen(req, timeout=15)
+        boundary = resp.headers.get("Content-Type", "").split("boundary=")[-1].strip()
+        if not boundary:
+            return None
+
+        intervals = []
+        buf = b""
+        last_frame_time = None
+        start = time.monotonic()
+        while time.monotonic() - start < duration_s:
+            chunk = resp.read(4096)
+            if not chunk:
+                break
+            buf += chunk
+            while b"\xff\xd8" in buf and b"\xff\xd9" in buf:
+                now = time.monotonic()
+                if last_frame_time is not None:
+                    intervals.append((now - last_frame_time) * 1000)
+                last_frame_time = now
+                idx = buf.index(b"\xff\xd9") + 2
+                buf = buf[idx:]
+        resp.close()
+
+        if len(intervals) < 2:
+            return None
+        avg_interval = sum(intervals) / len(intervals)
+        variance = sum((x - avg_interval) ** 2 for x in intervals) / len(intervals)
+        jitter = math.sqrt(variance)
+        return round(jitter, 1)
+    except Exception as e:
+        log(f"Quick jitter check failed: {e}")
+        return None
+
+
 def get_camera_temperature():
     """Try to read camera CPU temperature via VAPIX."""
     try:
@@ -1204,13 +1246,14 @@ def git_commit_push(repo_dir, message):
 MAX_RETRIES = 1  # retry once if measurement is noisy
 RETRY_WAIT_S = 30  # seconds to wait before retry (let network conditions change)
 
-# Known network noise window: 07:00-09:00 UTC (15:00-17:00 UTC+8)
-# During this window, jitter consistently exceeds 200ms, making measurements useless.
+# Known network noise window: ~07:30-09:00 UTC (15:30-17:00 UTC+8)
+# During this window, jitter frequently exceeds 200ms, making measurements useless.
 # Data from runs #67-#71 confirms this pattern (jitter 400-1550ms, FPS 0.2-0.4).
-NOISE_WINDOW_START_UTC = 7
-NOISE_WINDOW_END_UTC = 9
-RTT_ABORT_THRESHOLD_MS = 600  # if initial RTT exceeds this, don't even try probing
-JITTER_HARD_ABORT_MS = 500  # if final jitter exceeds this, don't record the data point
+# However run #65 (UTC 7:00) was clean (jitter=181ms), so start at 7:30.
+NOISE_WINDOW_START_UTC = 7.5  # 07:30 UTC
+NOISE_WINDOW_END_UTC = 9    # 09:00 UTC
+QUICK_JITTER_ABORT_MS = 300  # if 5s pre-check jitter exceeds this, skip full probe
+JITTER_HARD_ABORT_MS = 500   # if final jitter exceeds this, don't record the data point
 
 def main():
     log("=== zanderhbf2 probe starting ===")
@@ -1219,12 +1262,12 @@ def main():
     plan = load_plan()
     log(f"History: {len(history)} measurements")
 
-    # Check if we're in the known noise window
+    # Check if we're in the known noise window (uses fractional hour for 07:30 start)
     utc_now = datetime.datetime.now(datetime.timezone.utc)
-    utc_hour = utc_now.hour
-    if NOISE_WINDOW_START_UTC <= utc_hour < NOISE_WINDOW_END_UTC:
-        log(f"ABORT: Current UTC hour {utc_hour} is in known noise window ({NOISE_WINDOW_START_UTC}:00-{NOISE_WINDOW_END_UTC}:00 UTC). Skipping this run.")
-        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: noise window abort (UTC {utc_hour}:00)")
+    utc_frac_hour = utc_now.hour + utc_now.minute / 60.0
+    if NOISE_WINDOW_START_UTC <= utc_frac_hour < NOISE_WINDOW_END_UTC:
+        log(f"ABORT: Current UTC time {utc_now.strftime('%H:%M')} is in known noise window ({NOISE_WINDOW_START_UTC}:00-{NOISE_WINDOW_END_UTC}:00 UTC). Skipping this run.")
+        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: noise window abort (UTC {utc_now.strftime('%H:%M')})")
         log("=== zanderhbf2 probe complete (skipped) ===")
         return None
 
@@ -1237,12 +1280,18 @@ def main():
     rtt = measure_rtt()
     log(f"RTT: {rtt}ms")
 
-    # Pre-check: if RTT is extremely high, the network is unusable — abort
-    if rtt > RTT_ABORT_THRESHOLD_MS:
-        log(f"ABORT: RTT {rtt}ms exceeds {RTT_ABORT_THRESHOLD_MS}ms threshold. Network is too congested.")
-        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: high RTT abort ({rtt}ms)")
-        log("=== zanderhbf2 probe complete (skipped) ===")
-        return None
+    # Quick jitter pre-check: 5-second probe at 160x90 to estimate network conditions
+    log("Running quick jitter pre-check (5s at 160x90 c90)...")
+    pre_jitter = quick_jitter_check(duration_s=5)
+    if pre_jitter is not None:
+        log(f"Pre-check jitter: {pre_jitter:.1f}ms")
+        if pre_jitter > QUICK_JITTER_ABORT_MS:
+            log(f"ABORT: Pre-check jitter {pre_jitter:.0f}ms exceeds {QUICK_JITTER_ABORT_MS}ms. Network too noisy for useful measurement.")
+            git_commit_push(REPO_DIR, f"skip #{len(history)+1}: pre-check jitter abort ({pre_jitter:.0f}ms)")
+            log("=== zanderhbf2 probe complete (skipped) ===")
+            return None
+    else:
+        log("Pre-check failed (camera unreachable?), proceeding with full probe anyway")
 
     camera_info = get_camera_temperature()
     website_visitors = get_website_visitors()
