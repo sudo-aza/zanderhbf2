@@ -591,6 +591,76 @@ def design_next_test(history, plan):
 
 # ─── MODEL BUILDING ──────────────────────────────────────────────────────────
 
+def predict_fps(coeffs, resolution, compression, rtt_ms, jitter_ms, hour):
+    """
+    Predict FPS using regression coefficients.
+    Works with any model variant by checking which coefficient keys exist.
+    """
+    mp = RES_MP.get(resolution, 0.3)
+    rtt = rtt_ms / 1000.0
+    jitter = jitter_ms / 1000.0
+    sin_hour = math.sin(2 * math.pi * hour / 24)
+    fps = coeffs.get("intercept", 15)
+    fps += coeffs.get("megapixels", 0) * mp
+    fps += coeffs.get("compression", 0) * compression
+    if "comp_squared" in coeffs:
+        fps += coeffs["comp_squared"] * (compression * compression / 100)
+    if "mp_x_compression" in coeffs:
+        fps += coeffs["mp_x_compression"] * mp * compression
+    if "rtt" in coeffs:
+        fps += coeffs["rtt"] * rtt
+    if "jitter" in coeffs:
+        fps += coeffs["jitter"] * jitter
+    if "sin_hour" in coeffs:
+        fps += coeffs["sin_hour"] * sin_hour
+    if "cos_hour" in coeffs:
+        fps += coeffs["cos_hour"] * math.cos(2 * math.pi * hour / 24)
+    if "log_jitter" in coeffs:
+        fps += coeffs["log_jitter"] * math.log(1 + jitter * 10)
+    if "mp_x_jitter" in coeffs:
+        fps += coeffs["mp_x_jitter"] * mp * jitter
+    return max(0, round(fps, 2))
+
+
+def generate_practical_predictions(coeffs, label=""):
+    """
+    Generate FPS predictions for common streaming scenarios.
+    Shows expected FPS at different resolutions, compression levels, and network conditions.
+    """
+    scenarios = []
+    # Common resolutions people actually stream at
+    test_configs = [
+        ("160x90", 75, "lowest quality"),
+        ("320x240", 50, "low quality"),
+        ("640x480", 50, "medium quality"),
+        ("640x480", 25, "good quality"),
+        ("1280x720", 75, "HD low quality"),
+        ("1280x720", 50, "HD medium quality"),
+        ("1920x1080", 75, "Full HD low quality"),
+        ("1920x1080", 50, "Full HD medium quality"),
+    ]
+    # Three network conditions: good (night), moderate, bad (daytime peak)
+    network_conditions = [
+        ("good (night)", 500, 30, 3),      # low jitter, moderate RTT, 3AM
+        ("moderate", 650, 100, 12),        # moderate jitter, noon
+        ("bad (daytime)", 800, 400, 9),     # high jitter, 9AM congestion
+    ]
+    for res, comp, quality in test_configs:
+        for net_name, rtt, jitter, hour in network_conditions:
+            pred = predict_fps(coeffs, res, comp, rtt, jitter, hour)
+            scenarios.append({
+                "resolution": res,
+                "compression": comp,
+                "quality": quality,
+                "network": net_name,
+                "rtt_ms": rtt,
+                "jitter_ms": jitter,
+                "utc_hour": hour,
+                "predicted_fps": pred,
+            })
+    return {"scenarios": scenarios, "model_label": label}
+
+
 def build_model_summary(history):
     """
     Build a summary of all data with regression analysis.
