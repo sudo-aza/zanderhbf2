@@ -417,8 +417,15 @@ def design_next_test(history, plan):
         interesting_res = [r for r, _ in interesting]
 
         # Fine compression sweep at those resolutions
+        # Cap at MAX_FINE_PER_RES per resolution to avoid over-investing in one
+        MAX_FINE_PER_RES = 10
         fine_compressions = list(range(0, 101, 5))
         for res in interesting_res:
+            # Count how many fine sweep points this resolution already has
+            res_fine_count = sum(1 for r, c, e in tested
+                                if r == res and e == 0 and c % 5 == 0)
+            if res_fine_count >= MAX_FINE_PER_RES:
+                continue
             for comp in fine_compressions:
                 if (res, comp, 0) not in tested:
                     return {"resolution": res, "compression": comp, "extra_connections": 0,
