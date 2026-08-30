@@ -442,9 +442,9 @@ def design_next_test(history, plan):
                             "phase": 1, "strategy": "coarse_grid_fill"}
         # If all combos tested, move on
 
-    # ── PHASE 2: Fine compression sweep + untested resolution exploration (runs 50-120) ──
+    # ── PHASE 2: Untested resolution exploration + fine compression sweep (runs 50-120) ──
     if n < 120:
-        # Find which resolutions had the highest FPS variance across compression
+        # Build resolution stats
         res_fps_range = defaultdict(lambda: [100, 0])  # res -> [min_fps, max_fps]
         res_count = defaultdict(int)
         for rec in history:
@@ -455,19 +455,33 @@ def design_next_test(history, plan):
                 res_fps_range[res][1] = max(res_fps_range[res][1], fps)
                 res_count[res] += 1
 
-        # Pick top 5 resolutions by FPS range (most interesting behavior)
-        # BUT skip resolutions that already have >= 6 measurements (diminishing returns)
+        # PRIORITY 1: Explore UNTESTED resolutions first (critical for model coverage)
+        # We need at least 1 baseline at every resolution before fine sweeps.
+        # Start with lowest untested resolution (smaller = more likely to succeed on noisy network).
+        for res in ALL_RESOLUTIONS:
+            if res_count[res] == 0:
+                return {"resolution": res, "compression": 50, "extra_connections": 0,
+                        "phase": 2, "strategy": f"new_res_exploration_{res}"}
+
+        # PRIORITY 2: Fill resolutions that have < 3 tests (need more baseline coverage)
+        fine_compressions = list(range(0, 101, 5))
+        MIN_BASELINE_PER_RES = 3
+        for res in ALL_RESOLUTIONS:
+            if 0 < res_count[res] < MIN_BASELINE_PER_RES:
+                for comp in fine_compressions:
+                    if (res, comp, 0) not in tested:
+                        return {"resolution": res, "compression": comp, "extra_connections": 0,
+                                "phase": 2, "strategy": f"baseline_fill_{res}"}
+
+        # PRIORITY 3: Fine compression sweep at most interesting resolutions
         MAX_TOTAL_PER_RES_PHASE2 = 6
+        MAX_FINE_PER_RES = 10
         candidates = sorted(res_fps_range.items(),
                             key=lambda x: x[1][1] - x[1][0], reverse=True)
         interesting = [(r, rng) for r, rng in candidates if res_count[r] < MAX_TOTAL_PER_RES_PHASE2][:5]
         interesting_res = [r for r, _ in interesting]
 
-        # Fine compression sweep at those resolutions
-        MAX_FINE_PER_RES = 10
-        fine_compressions = list(range(0, 101, 5))
         for res in interesting_res:
-            # Count how many fine sweep points this resolution already has
             res_fine_count = sum(1 for r, c, e in tested
                                 if r == res and e == 0 and c % 5 == 0)
             if res_fine_count >= MAX_FINE_PER_RES:
@@ -477,15 +491,7 @@ def design_next_test(history, plan):
                     return {"resolution": res, "compression": comp, "extra_connections": 0,
                             "phase": 2, "strategy": f"fine_sweep_{res}"}
 
-        # If all interesting resolutions are maxed out, explore UNTESTED resolutions
-        # This is critical: 7 higher resolutions (800x450 through 1920x1080) have zero data
-        for res in ALL_RESOLUTIONS:
-            if res_count[res] == 0:
-                # Test untested resolution at moderate compression (50) for baseline
-                return {"resolution": res, "compression": 50, "extra_connections": 0,
-                        "phase": 2, "strategy": f"new_res_exploration_{res}"}
-
-        # If all resolutions have at least one test, do fine sweeps at under-tested ones
+        # PRIORITY 4: Fill any remaining gaps at under-tested resolutions
         for res in ALL_RESOLUTIONS:
             if res_count[res] < MAX_TOTAL_PER_RES_PHASE2:
                 for comp in fine_compressions:
