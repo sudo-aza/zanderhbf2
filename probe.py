@@ -628,43 +628,48 @@ def predict_fps(coeffs, resolution, compression, rtt_ms, jitter_ms, hour):
     return max(0, round(fps, 2))
 
 
-def generate_practical_predictions(coeffs, label=""):
+def predict_fps_planning(coeffs, resolution, compression, hour):
     """
-    Generate FPS predictions for common streaming scenarios.
-    Shows expected FPS at different resolutions, compression levels, and network conditions.
+    Predict FPS using only knowable-ahead-of-time features:
+    resolution, compression, and hour. No jitter/RTT needed.
     """
-    scenarios = []
-    # Common resolutions people actually stream at
-    test_configs = [
-        ("160x90", 75, "lowest quality"),
-        ("320x240", 50, "low quality"),
-        ("640x480", 50, "medium quality"),
-        ("640x480", 25, "good quality"),
-        ("1280x720", 75, "HD low quality"),
-        ("1280x720", 50, "HD medium quality"),
-        ("1920x1080", 75, "Full HD low quality"),
-        ("1920x1080", 50, "Full HD medium quality"),
+    mp = RES_MP.get(resolution, 0.3)
+    sin_hour = math.sin(2 * math.pi * hour / 24)
+    cos_hour = math.cos(2 * math.pi * hour / 24)
+    fps = coeffs.get("intercept", 15)
+    fps += coeffs.get("megapixels", 0) * mp
+    fps += coeffs.get("compression", 0) * compression
+    if "comp_squared" in coeffs:
+        fps += coeffs["comp_squared"] * (compression * compression / 100)
+    if "mp_x_compression" in coeffs:
+        fps += coeffs["mp_x_compression"] * mp * compression
+    if "sin_hour" in coeffs:
+        fps += coeffs["sin_hour"] * sin_hour
+    if "cos_hour" in coeffs:
+        fps += coeffs["cos_hour"] * cos_hour
+    return max(0, round(fps, 2))
+
+
+def generate_planning_table(coeffs, label=""):
+    """
+    Hour-by-hour FPS table for practical streaming configs.
+    Only uses resolution + compression + hour (no jitter/RTT).
+    """
+    configs = [
+        ("160x90", 75, "160x90 c75"),
+        ("320x240", 50, "320x240 c50"),
+        ("640x480", 50, "640x480 c50"),
+        ("1280x720", 75, "1280x720 c75"),
     ]
-    # Three network conditions: good (night), moderate, bad (daytime peak)
-    network_conditions = [
-        ("good (night)", 500, 30, 3),      # low jitter, moderate RTT, 3AM
-        ("moderate", 650, 100, 12),        # moderate jitter, noon
-        ("bad (daytime)", 800, 400, 9),     # high jitter, 9AM congestion
-    ]
-    for res, comp, quality in test_configs:
-        for net_name, rtt, jitter, hour in network_conditions:
-            pred = predict_fps(coeffs, res, comp, rtt, jitter, hour)
-            scenarios.append({
-                "resolution": res,
-                "compression": comp,
-                "quality": quality,
-                "network": net_name,
-                "rtt_ms": rtt,
-                "jitter_ms": jitter,
-                "utc_hour": hour,
-                "predicted_fps": pred,
-            })
-    return {"scenarios": scenarios, "model_label": label}
+    table = []
+    for res, comp, name in configs:
+        row = {"config": name, "resolution": res, "compression": comp}
+        # Key hours: 2 (night), 6 (dawn), 10 (morning peak), 14 (afternoon), 18 (evening), 22 (late night)
+        for h in [2, 6, 10, 14, 18, 22]:
+            pred = predict_fps_planning(coeffs, res, comp, h)
+            row[f"{h:02d}utc"] = pred
+        table.append(row)
+    return {"planning_table": table, "model_label": label}
 
 
 def build_model_summary(history):
@@ -805,16 +810,20 @@ def build_model_summary(history):
     # including daytime congestion. Clean model is kept as a "best case" reference.
     if len(multi_data) >= 8:
         summary["multifactor_regression"] = multi_linear_regression(multi_data, label="all_data")
-        # Generate practical FPS predictions for common streaming scenarios
-        all_model = summary["multifactor_regression"]
-        if all_model.get("status") == "ok" and all_model.get("coefficients"):
-            summary["practical_predictions"] = generate_practical_predictions(
-                all_model["coefficients"],
-                label=all_model.get("label", "")
-            )
+    # Generate planning table (no jitter/RTT needed — usable for advance planning)
+    planning_model = summary.get("planning_model")
+    if planning_model and planning_model.get("status") == "ok" and planning_model.get("coefficients"):
+        summary["planning_table"] = generate_planning_table(
+            planning_model["coefficients"],
+            label=planning_model.get("label", "")
+        )
     # Run regression on clean data — "best case" reference model
     if len(multi_data_clean) >= 6:
         summary["multifactor_regression_clean"] = multi_linear_regression(multi_data_clean, label="clean_data")
+    # Run PLANNING model on clean data — no jitter/RTT features
+    # Only uses resolution, compression, time-of-day (knowable ahead of time)
+    if len(multi_data_clean) >= 7:
+        summary["planning_model"] = multi_linear_regression(multi_data_clean, label="planning")
 
     # ── Bottleneck analysis ──
     # Identify whether encoder or bandwidth is the bottleneck per measurement
@@ -1003,6 +1012,17 @@ def multi_linear_regression(data, label=""):
         else:
             fail_info["tod_quad11"] = tod11_result.get("status", "unknown")
 
+    # Try 7-feature PLANNING model: resolution + compression + time-of-day only.
+    # No jitter/RTT — these can't be known ahead of time.
+    # Usable for "what fps at 10pm tonight?" without measuring network first.
+    if n >= 7:
+        plan_result = _fit_regression(data, features="planning_tod")
+        if plan_result.get("status") == "ok":
+            plan_result["label"] = label + "_planning_tod"
+            results["planning_tod"] = plan_result
+        else:
+            fail_info["planning_tod"] = plan_result.get("status", "unknown")
+
     if not results:
         return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_info}
     
@@ -1076,6 +1096,12 @@ def _fit_regression(data, features="reduced"):
             mp_jitter = mp * jitter
             row = [1, mp, comp, comp * comp / 100, mp * comp, rtt, jitter, sin_hour, cos_hour, log_jitter, mp_jitter]
             feature_names = ["intercept", "megapixels", "compression", "comp_squared", "mp_x_compression", "rtt_s", "jitter_s", "sin_hour", "cos_hour", "log_jitter", "mp_x_jitter"]
+        elif features == "planning_tod":
+            # 7-feat PLANNING model: no jitter/RTT — only knowable-ahead-of-time features
+            # resolution (mp), compression, comp^2, mp*comp, sin(hour), cos(hour)
+            cos_hour = math.cos(2 * math.pi * hour / 24)
+            row = [1, mp, comp, comp * comp / 100, mp * comp, sin_hour, cos_hour]
+            feature_names = ["intercept", "megapixels", "compression", "comp_squared", "mp_x_compression", "sin_hour", "cos_hour"]
         else:  # reduced
             row = [1, mp, comp, conn, mp * comp, online]
             feature_names = ["intercept", "megapixels", "compression", "connections",
@@ -1315,12 +1341,24 @@ def generate_findings(summary):
             findings.append(f"Moderate model fit (R²={r2}). Missing factors (time-of-day, network load?).")
         else:
             findings.append(f"Weak model fit (R²={r2}). FPS depends on unmeasured factors (network noise dominant?).")
-        # Also check clean model
+    # Check clean model
     multi_clean = summary.get("multifactor_regression_clean", {})
     if multi_clean.get("status") == "ok":
         r2_clean = multi_clean.get("r_squared", 0)
         if r2_clean > r2 + 0.1:
             findings.append(f"Clean model (excluding noisy measurements) fits much better: R²={r2_clean} vs {r2}")
+
+    # Planning model (no jitter/RTT — usable for advance scheduling)
+    plan_model = summary.get("planning_model")
+    if plan_model and plan_model.get("status") == "ok":
+        plan_r2 = plan_model.get("r_squared", 0)
+        plan_label = plan_model.get("best_model", "unknown")
+        findings.append(f"Planning model (no jitter/RTT): R²={plan_r2} — predict fps from resolution+compression+hour only")
+        # Show a quick example: 640x480 c50 at night vs afternoon
+        plan_coeffs = plan_model.get("coefficients", {})
+        night_fps = predict_fps_planning(plan_coeffs, "640x480", 50, 2)
+        afternoon_fps = predict_fps_planning(plan_coeffs, "640x480", 50, 14)
+        findings.append(f"  640x480 c50 example: 02:00 UTC ≈ {night_fps} fps, 14:00 UTC ≈ {afternoon_fps} fps")
 
     # Concurrent connection effect
     by_conn = summary.get("by_extra_connections", {})
