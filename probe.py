@@ -442,24 +442,28 @@ def design_next_test(history, plan):
                             "phase": 1, "strategy": "coarse_grid_fill"}
         # If all combos tested, move on
 
-    # ── PHASE 2: Fine compression sweep at interesting resolutions (runs 50-120) ──
+    # ── PHASE 2: Fine compression sweep + untested resolution exploration (runs 50-120) ──
     if n < 120:
         # Find which resolutions had the highest FPS variance across compression
         res_fps_range = defaultdict(lambda: [100, 0])  # res -> [min_fps, max_fps]
+        res_count = defaultdict(int)
         for rec in history:
             res = rec.get("resolution")
             fps = rec.get("measured_fps", 0)
             if res and rec.get("extra_connections", 0) == 0:
                 res_fps_range[res][0] = min(res_fps_range[res][0], fps)
                 res_fps_range[res][1] = max(res_fps_range[res][1], fps)
+                res_count[res] += 1
 
         # Pick top 5 resolutions by FPS range (most interesting behavior)
-        interesting = sorted(res_fps_range.items(),
-                              key=lambda x: x[1][1] - x[1][0], reverse=True)[:5]
+        # BUT skip resolutions that already have >= 6 measurements (diminishing returns)
+        MAX_TOTAL_PER_RES_PHASE2 = 6
+        candidates = sorted(res_fps_range.items(),
+                            key=lambda x: x[1][1] - x[1][0], reverse=True)
+        interesting = [(r, rng) for r, rng in candidates if res_count[r] < MAX_TOTAL_PER_RES_PHASE2][:5]
         interesting_res = [r for r, _ in interesting]
 
         # Fine compression sweep at those resolutions
-        # Cap at MAX_FINE_PER_RES per resolution to avoid over-investing in one
         MAX_FINE_PER_RES = 10
         fine_compressions = list(range(0, 101, 5))
         for res in interesting_res:
@@ -472,6 +476,22 @@ def design_next_test(history, plan):
                 if (res, comp, 0) not in tested:
                     return {"resolution": res, "compression": comp, "extra_connections": 0,
                             "phase": 2, "strategy": f"fine_sweep_{res}"}
+
+        # If all interesting resolutions are maxed out, explore UNTESTED resolutions
+        # This is critical: 7 higher resolutions (800x450 through 1920x1080) have zero data
+        for res in ALL_RESOLUTIONS:
+            if res_count[res] == 0:
+                # Test untested resolution at moderate compression (50) for baseline
+                return {"resolution": res, "compression": 50, "extra_connections": 0,
+                        "phase": 2, "strategy": f"new_res_exploration_{res}"}
+
+        # If all resolutions have at least one test, do fine sweeps at under-tested ones
+        for res in ALL_RESOLUTIONS:
+            if res_count[res] < MAX_TOTAL_PER_RES_PHASE2:
+                for comp in fine_compressions:
+                    if (res, comp, 0) not in tested:
+                        return {"resolution": res, "compression": comp, "extra_connections": 0,
+                                "phase": 2, "strategy": f"fill_sweep_{res}"}
 
     # ── PHASE 3: Concurrent connection tests (runs 120-160) ──
     if n < 160:
@@ -704,10 +724,19 @@ def build_model_summary(history):
             if not is_noisy_record and not is_invalid_record:
                 multi_data_clean.append(entry)
 
-    # Run regression on all data (threshold 8 instead of 10 for faster initial results)
+    # Run regression on all data — this is the PRIMARY predictive model.
+    # It includes noisy/congested measurements so it can predict real-world FPS
+    # including daytime congestion. Clean model is kept as a "best case" reference.
     if len(multi_data) >= 8:
         summary["multifactor_regression"] = multi_linear_regression(multi_data, label="all_data")
-    # Run regression on clean data if we have enough
+        # Generate practical FPS predictions for common streaming scenarios
+        all_model = summary["multifactor_regression"]
+        if all_model.get("status") == "ok" and all_model.get("coefficients"):
+            summary["practical_predictions"] = generate_practical_predictions(
+                all_model["coefficients"],
+                label=all_model.get("label", "")
+            )
+    # Run regression on clean data — "best case" reference model
     if len(multi_data_clean) >= 6:
         summary["multifactor_regression_clean"] = multi_linear_regression(multi_data_clean, label="clean_data")
 
@@ -755,6 +784,32 @@ def build_model_summary(history):
     
     # ── Key findings ──
     summary["key_findings"] = generate_findings(summary)
+
+    # ── Diurnal FPS profile ──
+    # Hour-by-hour expected FPS at a common streaming config (640x480 c50)
+    # using the all-data model if available
+    all_model = summary.get("multifactor_regression", {})
+    if all_model.get("status") == "ok" and all_model.get("coefficients"):
+        coeffs = all_model["coefficients"]
+        diurnal = []
+        for h in range(24):
+            # Use median RTT and jitter for this hour from actual data
+            hour_fps = [r.get("measured_fps", 0) for r in history if r.get("utc_hour") == h]
+            hour_rtt = [r.get("network_rtt_ms", 0) or 0 for r in history if r.get("utc_hour") == h]
+            hour_jitter = [r.get("jitter_ms", 0) or 0 for r in history if r.get("utc_hour") == h]
+            median_rtt = sorted(hour_rtt)[len(hour_rtt) // 2] if hour_rtt else 650
+            median_jitter = sorted(hour_jitter)[len(hour_jitter) // 2] if hour_jitter else 50
+            # Predict for 640x480 c50 (common streaming config)
+            pred = predict_fps(coeffs, "640x480", 50, median_rtt, median_jitter, h)
+            diurnal.append({
+                "utc_hour": h,
+                "median_rtt_ms": round(median_rtt, 1),
+                "median_jitter_ms": round(median_jitter, 1),
+                "n_measurements": len(hour_fps),
+                "predicted_fps_640x480_c50": pred,
+                "actual_mean_fps": round(sum(hour_fps) / len(hour_fps), 2) if hour_fps else None,
+            })
+        summary["diurnal_profile"] = diurnal
 
     return summary
 
@@ -861,6 +916,17 @@ def multi_linear_regression(data, label=""):
         else:
             fail_info["tod_quad9"] = tod_result.get("status", "unknown")
 
+    # Try 11-feature model with log-jitter and mp×jitter interaction
+    # Captures the non-linear (threshold-like) effect of jitter on FPS,
+    # and the fact that high-res streams suffer more from jitter than low-res ones.
+    if n >= 11:
+        tod11_result = _fit_regression(data, features="tod_quad11")
+        if tod11_result.get("status") == "ok":
+            tod11_result["label"] = label + "_tod_quad11"
+            results["tod_quad11"] = tod11_result
+        else:
+            fail_info["tod_quad11"] = tod11_result.get("status", "unknown")
+
     if not results:
         return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_info}
     
@@ -924,6 +990,16 @@ def _fit_regression(data, features="reduced"):
             cos_hour = math.cos(2 * math.pi * hour / 24)
             row = [1, mp, comp, comp * comp / 100, mp * comp, rtt, jitter, sin_hour, cos_hour]
             feature_names = ["intercept", "megapixels", "compression", "comp_squared", "mp_x_compression", "rtt_s", "jitter_s", "sin_hour", "cos_hour"]
+        elif features == "tod_quad11":
+            # 11-feat: tod_quad9 + log(1+jitter*10) + mp*jitter
+            # log_jitter captures the non-linear threshold effect of jitter on FPS
+            # (high jitter doesn't just linearly reduce FPS — it crushes it)
+            # mp_x_jitter captures that high-res + high-jitter is worse than additive
+            cos_hour = math.cos(2 * math.pi * hour / 24)
+            log_jitter = math.log(1 + jitter * 10)
+            mp_jitter = mp * jitter
+            row = [1, mp, comp, comp * comp / 100, mp * comp, rtt, jitter, sin_hour, cos_hour, log_jitter, mp_jitter]
+            feature_names = ["intercept", "megapixels", "compression", "comp_squared", "mp_x_compression", "rtt_s", "jitter_s", "sin_hour", "cos_hour", "log_jitter", "mp_x_jitter"]
         else:  # reduced
             row = [1, mp, comp, conn, mp * comp, online]
             feature_names = ["intercept", "megapixels", "compression", "connections",
@@ -1205,7 +1281,9 @@ def generate_findings(summary):
     if qm.get("noise_rate", 0) > 0.2:
         findings.append(
             f"High noise rate: {qm['noise_rate']*100:.0f}% of measurements are noisy (jitter > {HIGH_JITTER_THRESHOLD_MS}ms). "
-            f"Consider using clean_data model for predictions."
+            f"The all-data model uses jitter + time-of-day as features so it predicts FPS "
+            f"under ALL network conditions. The clean model (R²={summary.get('multifactor_regression_clean', {}).get('r_squared', 0):.3f}) "
+            f"is more precise for good-network predictions."
         )
     
     # Network stats findings
