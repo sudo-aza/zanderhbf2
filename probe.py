@@ -810,13 +810,6 @@ def build_model_summary(history):
     # including daytime congestion. Clean model is kept as a "best case" reference.
     if len(multi_data) >= 8:
         summary["multifactor_regression"] = multi_linear_regression(multi_data, label="all_data")
-    # Generate planning table (no jitter/RTT needed — usable for advance planning)
-    planning_model = summary.get("planning_model")
-    if planning_model and planning_model.get("status") == "ok" and planning_model.get("coefficients"):
-        summary["planning_table"] = generate_planning_table(
-            planning_model["coefficients"],
-            label=planning_model.get("label", "")
-        )
     # Run regression on clean data — "best case" reference model
     if len(multi_data_clean) >= 6:
         summary["multifactor_regression_clean"] = multi_linear_regression(multi_data_clean, label="clean_data")
@@ -824,6 +817,13 @@ def build_model_summary(history):
     # Only uses resolution, compression, time-of-day (knowable ahead of time)
     if len(multi_data_clean) >= 7:
         summary["planning_model"] = multi_linear_regression(multi_data_clean, label="planning", force_variant="planning_tod")
+    # Generate planning table (no jitter/RTT needed — usable for advance planning)
+    planning_model = summary.get("planning_model")
+    if planning_model and planning_model.get("status") == "ok" and planning_model.get("coefficients"):
+        summary["planning_table"] = generate_planning_table(
+            planning_model["coefficients"],
+            label=planning_model.get("label", "")
+        )
 
     # ── Bottleneck analysis ──
     # Identify whether encoder or bandwidth is the bottleneck per measurement
