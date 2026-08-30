@@ -792,7 +792,16 @@ def multi_linear_regression(data, label=""):
         results["minimal_5feat"] = minimal5_result
     else:
         fail_info["minimal_5feat"] = minimal5_result.get("status", "unknown")
-    
+
+    # Try 7-feature model with quadratic compression (captures non-linear comp response)
+    if n >= 7:
+        quad7_result = _fit_regression(data, features="quad7")
+        if quad7_result.get("status") == "ok":
+            quad7_result["label"] = label + "_7feat_quad"
+            results["quad_7feat"] = quad7_result
+        else:
+            fail_info["quad_7feat"] = quad7_result.get("status", "unknown")
+
     if not results:
         return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_info}
     
@@ -846,6 +855,10 @@ def _fit_regression(data, features="reduced"):
         elif features == "minimal5":
             row = [1, mp, comp, mp * comp, rtt, jitter]
             feature_names = ["intercept", "megapixels", "compression", "mp_x_compression", "rtt_s", "jitter_s"]
+        elif features == "quad7":
+            # 7-feat: adds compression² to capture non-linear compression response
+            row = [1, mp, comp, comp * comp / 100, mp * comp, rtt, jitter]
+            feature_names = ["intercept", "megapixels", "compression", "comp_squared", "mp_x_compression", "rtt_s", "jitter_s"]
         else:  # reduced
             row = [1, mp, comp, conn, mp * comp, online]
             feature_names = ["intercept", "megapixels", "compression", "connections",
