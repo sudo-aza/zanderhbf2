@@ -851,6 +851,16 @@ def multi_linear_regression(data, label=""):
         else:
             fail_info["quad_7feat"] = quad7_result.get("status", "unknown")
 
+    # Try 9-feature model with time-of-day (sin+cos hour) — the PREDICTIVE model
+    # This tells users what FPS to expect at any given hour, including daytime
+    if n >= 9:
+        tod_result = _fit_regression(data, features="tod_quad9")
+        if tod_result.get("status") == "ok":
+            tod_result["label"] = label + "_tod_quad9"
+            results["tod_quad9"] = tod_result
+        else:
+            fail_info["tod_quad9"] = tod_result.get("status", "unknown")
+
     if not results:
         return {"status": "all_models_failed", "n": n, "label": label, "fail_reasons": fail_info}
     
@@ -908,6 +918,12 @@ def _fit_regression(data, features="reduced"):
             # 7-feat: adds compression² to capture non-linear compression response
             row = [1, mp, comp, comp * comp / 100, mp * comp, rtt, jitter]
             feature_names = ["intercept", "megapixels", "compression", "comp_squared", "mp_x_compression", "rtt_s", "jitter_s"]
+        elif features == "tod_quad9":
+            # 9-feat: quad7 + sin(hour) + cos(hour) for time-of-day diurnal pattern
+            # This is the PREDICTIVE model — tells you what FPS to expect at any hour
+            cos_hour = math.cos(2 * math.pi * hour / 24)
+            row = [1, mp, comp, comp * comp / 100, mp * comp, rtt, jitter, sin_hour, cos_hour]
+            feature_names = ["intercept", "megapixels", "compression", "comp_squared", "mp_x_compression", "rtt_s", "jitter_s", "sin_hour", "cos_hour"]
         else:  # reduced
             row = [1, mp, comp, conn, mp * comp, online]
             feature_names = ["intercept", "megapixels", "compression", "connections",
@@ -1246,14 +1262,14 @@ def git_commit_push(repo_dir, message):
 MAX_RETRIES = 1  # retry once if measurement is noisy
 RETRY_WAIT_S = 30  # seconds to wait before retry (let network conditions change)
 
-# Known network noise window: ~07:30-12:00 UTC (15:30-20:00 UTC+8)
-# During this window, jitter frequently exceeds 200ms, making measurements useless.
-# Evidence: full probes 07:00-10:30 all >500ms; pre-checks at 11:00 (318ms) and 11:30 (335ms) still >200ms.
-# Run #65 (UTC 7:00) was clean (jitter=181ms), so start at 7:30.
-NOISE_WINDOW_START_UTC = 7.5   # 07:30 UTC
-NOISE_WINDOW_END_UTC = 12    # 12:00 UTC
-QUICK_JITTER_ABORT_MS = 200  # if 5s pre-check jitter exceeds this, skip full probe
-JITTER_HARD_ABORT_MS = 500   # if final jitter exceeds this, don't record the data point
+# Fast-skip window: only the most extreme congestion where probes yield ~0 fps.
+# We DO record all other noisy data — daytime measurements are VALUABLE for
+# predicting real-world FPS. The regression uses jitter + time-of-day as features.
+# Evidence: 07:30-09:00 UTC consistently gives <1 fps with >500ms jitter.
+FAST_SKIP_START_UTC = 7.5   # 07:30 UTC
+FAST_SKIP_END_UTC = 9      # 09:00 UTC
+QUICK_JITTER_ABORT_MS = 800  # only skip if pre-check jitter is truly catastrophic
+# JITTER_HARD_ABORT_MS removed — ALL data gets recorded
 
 def main():
     log("=== zanderhbf2 probe starting ===")
@@ -1262,12 +1278,12 @@ def main():
     plan = load_plan()
     log(f"History: {len(history)} measurements")
 
-    # Check if we're in the known noise window (uses fractional hour for 07:30 start)
+    # Fast-skip only the worst 1.5h window (07:30-09:00 UTC) where fps is reliably ~0
     utc_now = datetime.datetime.now(datetime.timezone.utc)
     utc_frac_hour = utc_now.hour + utc_now.minute / 60.0
-    if NOISE_WINDOW_START_UTC <= utc_frac_hour < NOISE_WINDOW_END_UTC:
-        log(f"ABORT: Current UTC time {utc_now.strftime('%H:%M')} is in known noise window ({NOISE_WINDOW_START_UTC}:00-{NOISE_WINDOW_END_UTC}:00 UTC). Skipping this run.")
-        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: noise window abort (UTC {utc_now.strftime('%H:%M')})")
+    if FAST_SKIP_START_UTC <= utc_frac_hour < FAST_SKIP_END_UTC:
+        log(f"FAST SKIP: UTC {utc_now.strftime('%H:%M')} in extreme congestion window ({FAST_SKIP_START_UTC}:00-{FAST_SKIP_END_UTC}:00 UTC). Saving 70s.")
+        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: fast-skip (UTC {utc_now.strftime('%H:%M')})")
         log("=== zanderhbf2 probe complete (skipped) ===")
         return None
 
@@ -1286,8 +1302,8 @@ def main():
     if pre_jitter is not None:
         log(f"Pre-check jitter: {pre_jitter:.1f}ms")
         if pre_jitter > QUICK_JITTER_ABORT_MS:
-            log(f"ABORT: Pre-check jitter {pre_jitter:.0f}ms exceeds {QUICK_JITTER_ABORT_MS}ms. Network too noisy for useful measurement.")
-            git_commit_push(REPO_DIR, f"skip #{len(history)+1}: pre-check jitter abort ({pre_jitter:.0f}ms)")
+            log(f"FAST SKIP: Pre-check jitter {pre_jitter:.0f}ms is catastrophic (> {QUICK_JITTER_ABORT_MS}ms).")
+            git_commit_push(REPO_DIR, f"skip #{len(history)+1}: catastrophic jitter ({pre_jitter:.0f}ms)")
             log("=== zanderhbf2 probe complete (skipped) ===")
             return None
     else:
@@ -1374,15 +1390,9 @@ def main():
     if not is_valid:
         log(f"  FINAL WARNING: Measurement still invalid after {attempt} attempt(s)")
 
-    # Hard abort: if jitter is catastrophically high, don't pollute the dataset
-    final_jitter = result.get("jitter_ms", 0)
-    if final_jitter > JITTER_HARD_ABORT_MS:
-        log(f"ABORT: Final jitter {final_jitter:.0f}ms exceeds {JITTER_HARD_ABORT_MS}ms hard limit. Not recording.")
-        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: hard jitter abort ({final_jitter:.0f}ms)")
-        log("=== zanderhbf2 probe complete (discarded) ===")
-        return None
-
-    # Append to history
+    # ALWAYS record data — even noisy measurements are informative for predicting real-world FPS.
+    # The regression uses jitter and time-of-day as features, so noisy data
+    # helps the model learn the diurnal congestion pattern.
     append_record(record)
     log(f"Result: {record['num_frames']} frames, {record['measured_fps']} fps, "
         f"{record['bandwidth_mbps']} Mbps, avg_frame={record['avg_frame_size_bytes']} bytes")
