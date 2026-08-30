@@ -1,14 +1,14 @@
 {
   "status": "ok",
-  "total_measurements": 96,
-  "last_updated": "2026-08-30T19:18:06.977147",
+  "total_measurements": 97,
+  "last_updated": "2026-08-30T19:33:09.572583",
   "global_fps": {
-    "count": 96,
-    "mean": 10.8009,
-    "std": 9.6727,
+    "count": 97,
+    "mean": 10.7178,
+    "std": 9.6571,
     "min": 0,
     "max": 25.0712,
-    "median": 6.4757
+    "median": 5.7419
   },
   "by_resolution": {
     "1024x768": {
@@ -28,11 +28,11 @@
       "median": 1.5539
     },
     "1280x720": {
-      "count": 2,
-      "mean": 1.296,
-      "std": 0.1396,
+      "count": 3,
+      "mean": 1.7772,
+      "std": 0.69,
       "min": 1.1564,
-      "max": 1.4356,
+      "max": 2.7395,
       "median": 1.4356
     },
     "1280x960": {
@@ -158,9 +158,9 @@
       "median": 1.7687
     },
     "5": {
-      "count": 12,
-      "mean": 2.9516,
-      "std": 4.1196,
+      "count": 13,
+      "mean": 2.9353,
+      "std": 3.9584,
       "min": 0.1566,
       "max": 15.4741,
       "median": 1.8511
@@ -456,12 +456,12 @@
       "median": 0.5636
     },
     "19": {
-      "count": 3,
-      "mean": 9.2967,
-      "std": 10.8248,
+      "count": 4,
+      "mean": 7.6574,
+      "std": 9.7951,
       "min": 1.4356,
       "max": 24.6033,
-      "median": 1.8511
+      "median": 2.7395
     },
     "20": {
       "count": 4,
@@ -498,12 +498,12 @@
   },
   "by_extra_connections": {
     "0": {
-      "count": 96,
-      "mean": 10.8009,
-      "std": 9.6727,
+      "count": 97,
+      "mean": 10.7178,
+      "std": 9.6571,
       "min": 0,
       "max": 25.0712,
-      "median": 6.4757
+      "median": 5.7419
     }
   },
   "by_visitors_online": {
@@ -516,12 +516,12 @@
       "median": 23.6376
     },
     "2": {
-      "count": 22,
-      "mean": 9.9473,
-      "std": 8.5016,
+      "count": 23,
+      "mean": 9.6339,
+      "std": 8.4436,
       "min": 0.1566,
       "max": 25.0195,
-      "median": 7.0662
+      "median": 6.4757
     },
     "3": {
       "count": 26,
@@ -566,12 +566,12 @@
       "median": 19.3349
     },
     "2": {
-      "count": 46,
-      "mean": 6.1951,
-      "std": 7.3702,
+      "count": 47,
+      "mean": 6.1216,
+      "std": 7.3084,
       "min": 0,
       "max": 25.0195,
-      "median": 3.6975
+      "median": 3.6612
     }
   },
   "regression_fps_vs_megapixels": {
@@ -611,11 +611,11 @@
       "equation": "FPS = 10.7399 * MP + 20.86 (R\u00b2=0.0290)"
     },
     "5": {
-      "slope": -2.876479,
-      "intercept": 3.5259,
-      "r_squared": 0.024873,
-      "n": 12,
-      "equation": "FPS = -2.8765 * MP + 3.53 (R\u00b2=0.0249)"
+      "slope": -1.739942,
+      "intercept": 3.3793,
+      "r_squared": 0.016249,
+      "n": 13,
+      "equation": "FPS = -1.7399 * MP + 3.38 (R\u00b2=0.0162)"
     },
     "10": {
       "slope": -102.681086,
@@ -648,56 +648,56 @@
   },
   "multifactor_regression": {
     "status": "ok",
-    "n": 96,
+    "n": 97,
     "k": 11,
     "coefficients": {
-      "intercept": 21.884774,
-      "megapixels": -12.83974,
-      "compression": -0.007139,
-      "comp_squared": 0.080557,
-      "mp_x_compression": 0.049764,
-      "rtt_s": 0.510532,
-      "jitter_s": 6.680594,
-      "sin_hour": -1.960639,
-      "cos_hour": 3.146907,
-      "log_jitter": -12.661019,
-      "mp_x_jitter": 5.900168
+      "intercept": 21.845451,
+      "megapixels": -12.324568,
+      "compression": -0.005948,
+      "comp_squared": 0.08031,
+      "mp_x_compression": 0.040613,
+      "rtt_s": 0.494613,
+      "jitter_s": 6.729133,
+      "sin_hour": -1.959577,
+      "cos_hour": 3.146939,
+      "log_jitter": -12.67474,
+      "mp_x_jitter": 5.686622
     },
-    "r_squared": 0.821913,
-    "mae": 3.2682,
-    "rmse": 4.0819,
-    "equation": "FPS = 21.885 + -12.8397*megapixels + -0.0071*compression + 0.0806*compquared + 0.0498*MP*C + 0.5105*rtt + 6.6806*jitter + -1.9606*sin_hour + 3.1469*cos_hour + -12.6610*log_jitter + 5.9002*mp_x_jitter (R\u00b2=0.8219, RMSE=4.082)",
+    "r_squared": 0.82299,
+    "mae": 3.2431,
+    "rmse": 4.063,
+    "equation": "FPS = 21.845 + -12.3246*megapixels + -0.0059*compression + 0.0803*compquared + 0.0406*MP*C + 0.4946*rtt + 6.7291*jitter + -1.9596*sin_hour + 3.1469*cos_hour + -12.6747*log_jitter + 5.6866*mp_x_jitter (R\u00b2=0.8230, RMSE=4.063)",
     "label": "all_data",
     "best_model": "tod_quad11",
     "all_models": {
       "minimal_4feat": {
-        "r_squared": 0.450358,
-        "equation": "FPS = 11.167 + -8.4086*megapixels + 0.1250*compression + -2.6559*rtt + -5.4474*jitter (R\u00b2=0.4504, RMSE=7.171)",
+        "r_squared": 0.454104,
+        "equation": "FPS = 11.196 + -8.3231*megapixels + 0.1246*compression + -2.6756*rtt + -5.4637*jitter (R\u00b2=0.4541, RMSE=7.135)",
         "status": "ok"
       },
       "minimal_5feat": {
-        "r_squared": 0.451066,
-        "equation": "FPS = 10.916 + -6.7553*megapixels + 0.1309*compression + -0.0397*MP*C + -2.6531*rtt + -5.5237*jitter (R\u00b2=0.4511, RMSE=7.167)",
+        "r_squared": 0.454966,
+        "equation": "FPS = 10.914 + -6.7118*megapixels + 0.1310*compression + -0.0406*MP*C + -2.6550*rtt + -5.5270*jitter (R\u00b2=0.4550, RMSE=7.130)",
         "status": "ok"
       },
       "quad_7feat": {
-        "r_squared": 0.457711,
-        "equation": "FPS = 12.335 + -7.7972*megapixels + 0.0403*compression + 0.0901*compquared + -0.0049*MP*C + -2.9332*rtt + -5.7978*jitter (R\u00b2=0.4577, RMSE=7.123)",
+        "r_squared": 0.461564,
+        "equation": "FPS = 12.333 + -7.7491*megapixels + 0.0404*compression + 0.0901*compquared + -0.0058*MP*C + -2.9354*rtt + -5.8015*jitter (R\u00b2=0.4616, RMSE=7.086)",
         "status": "ok"
       },
       "tod_quad9": {
-        "r_squared": 0.636404,
-        "equation": "FPS = 10.552 + -11.7658*megapixels + 0.0696*compression + 0.0460*compquared + 0.0572*MP*C + 0.4302*rtt + -3.9092*jitter + -0.5975*sin_hour + 6.5120*cos_hour (R\u00b2=0.6364, RMSE=5.833)",
+        "r_squared": 0.638937,
+        "equation": "FPS = 10.541 + -11.5453*megapixels + 0.0700*compression + 0.0460*compquared + 0.0529*MP*C + 0.4194*rtt + -3.9262*jitter + -0.5974*sin_hour + 6.5105*cos_hour (R\u00b2=0.6389, RMSE=5.803)",
         "status": "ok"
       },
       "tod_quad11": {
-        "r_squared": 0.821913,
-        "equation": "FPS = 21.885 + -12.8397*megapixels + -0.0071*compression + 0.0806*compquared + 0.0498*MP*C + 0.5105*rtt + 6.6806*jitter + -1.9606*sin_hour + 3.1469*cos_hour + -12.6610*log_jitter + 5.9002*mp_x_jitter (R\u00b2=0.8219, RMSE=4.082)",
+        "r_squared": 0.82299,
+        "equation": "FPS = 21.845 + -12.3246*megapixels + -0.0059*compression + 0.0803*compquared + 0.0406*MP*C + 0.4946*rtt + 6.7291*jitter + -1.9596*sin_hour + 3.1469*cos_hour + -12.6747*log_jitter + 5.6866*mp_x_jitter (R\u00b2=0.8230, RMSE=4.063)",
         "status": "ok"
       },
       "planning_tod": {
-        "r_squared": 0.600657,
-        "equation": "FPS = 8.982 + -13.2482*megapixels + 0.1139*compression + 0.0137*compquared + 0.0854*MP*C + -0.2094*sin_hour + 7.1305*cos_hour (R\u00b2=0.6007, RMSE=6.113)",
+        "r_squared": 0.602728,
+        "equation": "FPS = 8.879 + -12.4102*megapixels + 0.1163*compression + 0.0131*compquared + 0.0695*MP*C + -0.1985*sin_hour + 7.1387*cos_hour (R\u00b2=0.6027, RMSE=6.087)",
         "status": "ok"
       },
       "full_9feat": {
@@ -875,15 +875,15 @@
     "encoder_bottleneck_count": 3,
     "bandwidth_bottleneck_count": 3,
     "sensor_bottleneck_count": 0,
-    "network_noise_count": 37,
+    "network_noise_count": 38,
     "unknown_count": 53
   },
   "quality_metrics": {
-    "total_measurements": 96,
-    "noisy_count": 33,
+    "total_measurements": 97,
+    "noisy_count": 34,
     "invalid_count": 11,
     "clean_count": 63,
-    "noise_rate": 0.344,
+    "noise_rate": 0.351,
     "noisy_run_numbers": [
       8,
       13,
@@ -917,22 +917,23 @@
       92,
       94,
       95,
-      96
+      96,
+      97
     ]
   },
   "network_stats": {
     "rtt_ms": {
-      "count": 96,
-      "mean": 672.0204,
-      "std": 242.8355,
+      "count": 97,
+      "mean": 670.432,
+      "std": 242.0813,
       "min": 0,
       "max": 1602.0,
-      "median": 626.3
+      "median": 615.11
     },
     "jitter_ms": {
-      "count": 96,
-      "mean": 305.6227,
-      "std": 525.8483,
+      "count": 97,
+      "mean": 304.714,
+      "std": 523.2065,
       "min": 0,
       "max": 3424.34,
       "median": 136.73
@@ -942,15 +943,15 @@
     "Best FPS: 25.0712 at resolution 160x90 (mean: 15.4837, 8 tests)",
     "Worst mean FPS: 0.0 at resolution 1920x1080",
     "Compression effect: c0=4.969fps, c50=8.5392fps, c100=22.0193fps",
-    "Model: FPS = 21.885 + -12.8397*megapixels + -0.0071*compression + 0.0806*compquared + 0.0498*MP*C + 0.5105*rtt + 6.6806*jitter + -1.9606*sin_hour + 3.1469*cos_hour + -12.6610*log_jitter + 5.9002*mp_x_jitter (R\u00b2=0.8219, RMSE=4.082)",
+    "Model: FPS = 21.845 + -12.3246*megapixels + -0.0059*compression + 0.0803*compquared + 0.0406*MP*C + 0.4946*rtt + 6.7291*jitter + -1.9596*sin_hour + 3.1469*cos_hour + -12.6747*log_jitter + 5.6866*mp_x_jitter (R\u00b2=0.8230, RMSE=4.063)",
     "Best model variant: tod_quad11",
-    "Strong model fit (R\u00b2=0.821913). Variables explain most FPS variance.",
+    "Strong model fit (R\u00b2=0.82299). Variables explain most FPS variance.",
     "Planning model (no jitter/RTT): R\u00b2=0.576178 \u2014 predict fps from resolution+compression+hour only",
     "  640x480 c50 example: 02:00 UTC \u2248 14.6 fps, 14:00 UTC \u2248 10.11 fps",
-    "Bottleneck distribution: encoder=3, bandwidth=3, sensor=0, network_noise=37, normal=53",
+    "Bottleneck distribution: encoder=3, bandwidth=3, sensor=0, network_noise=38, normal=53",
     "Time-of-day: best hour 1:00 (mean 25.0364fps), worst hour 17:00 (mean 1.1502fps)",
-    "High noise rate: 34% of measurements are noisy (jitter > 200ms). The all-data model uses jitter + time-of-day as features so it predicts FPS under ALL network conditions. The clean model (R\u00b2=0.827) is more precise for good-network predictions.",
-    "Network RTT: mean=672ms, range=[0-1602]ms",
+    "High noise rate: 35% of measurements are noisy (jitter > 200ms). The all-data model uses jitter + time-of-day as features so it predicts FPS under ALL network conditions. The clean model (R\u00b2=0.827) is more precise for good-network predictions.",
+    "Network RTT: mean=670ms, range=[0-1602]ms",
     "Website visitors online: 1 users \u2192 20.0778fps, 6 users \u2192 0.2275fps"
   ],
   "diurnal_profile": [
@@ -959,7 +960,7 @@
       "median_rtt_ms": 0,
       "median_jitter_ms": 58.8,
       "n_measurements": 1,
-      "predicted_fps_640x480_c50": 17.76,
+      "predicted_fps_640x480_c50": 17.78,
       "actual_mean_fps": 20.85
     },
     {
@@ -967,7 +968,7 @@
       "median_rtt_ms": 830.0,
       "median_jitter_ms": 39.1,
       "n_measurements": 1,
-      "predicted_fps_640x480_c50": 18.79,
+      "predicted_fps_640x480_c50": 18.81,
       "actual_mean_fps": 25.04
     },
     {
@@ -975,7 +976,7 @@
       "median_rtt_ms": 0,
       "median_jitter_ms": 57.5,
       "n_measurements": 1,
-      "predicted_fps_640x480_c50": 16.46,
+      "predicted_fps_640x480_c50": 16.48,
       "actual_mean_fps": 24.69
     },
     {
@@ -983,7 +984,7 @@
       "median_rtt_ms": 729.2,
       "median_jitter_ms": 85.9,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 13.51,
+      "predicted_fps_640x480_c50": 13.53,
       "actual_mean_fps": 17.32
     },
     {
@@ -991,7 +992,7 @@
       "median_rtt_ms": 502.8,
       "median_jitter_ms": 38.8,
       "n_measurements": 3,
-      "predicted_fps_640x480_c50": 16.16,
+      "predicted_fps_640x480_c50": 16.18,
       "actual_mean_fps": 16.36
     },
     {
@@ -999,7 +1000,7 @@
       "median_rtt_ms": 575.4,
       "median_jitter_ms": 85.6,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 11.61,
+      "predicted_fps_640x480_c50": 11.63,
       "actual_mean_fps": 10.18
     },
     {
@@ -1007,7 +1008,7 @@
       "median_rtt_ms": 513.2,
       "median_jitter_ms": 97.1,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 9.98,
+      "predicted_fps_640x480_c50": 10.0,
       "actual_mean_fps": 14.87
     },
     {
@@ -1023,7 +1024,7 @@
       "median_rtt_ms": 670.8,
       "median_jitter_ms": 141.7,
       "n_measurements": 3,
-      "predicted_fps_640x480_c50": 6.17,
+      "predicted_fps_640x480_c50": 6.18,
       "actual_mean_fps": 8.38
     },
     {
@@ -1031,7 +1032,7 @@
       "median_rtt_ms": 631.9,
       "median_jitter_ms": 176.9,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 4.17,
+      "predicted_fps_640x480_c50": 4.18,
       "actual_mean_fps": 4.52
     },
     {
@@ -1039,7 +1040,7 @@
       "median_rtt_ms": 820.2,
       "median_jitter_ms": 166.3,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 4.56,
+      "predicted_fps_640x480_c50": 4.57,
       "actual_mean_fps": 14.37
     },
     {
@@ -1047,7 +1048,7 @@
       "median_rtt_ms": 627.9,
       "median_jitter_ms": 122.2,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 6.93,
+      "predicted_fps_640x480_c50": 6.94,
       "actual_mean_fps": 14.15
     },
     {
@@ -1055,7 +1056,7 @@
       "median_rtt_ms": 777.3,
       "median_jitter_ms": 151.6,
       "n_measurements": 5,
-      "predicted_fps_640x480_c50": 5.81,
+      "predicted_fps_640x480_c50": 5.82,
       "actual_mean_fps": 6.84
     },
     {
@@ -1087,7 +1088,7 @@
       "median_rtt_ms": 673.7,
       "median_jitter_ms": 386.8,
       "n_measurements": 8,
-      "predicted_fps_640x480_c50": 1.15,
+      "predicted_fps_640x480_c50": 1.13,
       "actual_mean_fps": 4.89
     },
     {
@@ -1095,7 +1096,7 @@
       "median_rtt_ms": 737.8,
       "median_jitter_ms": 373.6,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 2.43,
+      "predicted_fps_640x480_c50": 2.41,
       "actual_mean_fps": 1.15
     },
     {
@@ -1110,16 +1111,16 @@
       "utc_hour": 19,
       "median_rtt_ms": 542.1,
       "median_jitter_ms": 297.8,
-      "n_measurements": 3,
-      "predicted_fps_640x480_c50": 6.13,
-      "actual_mean_fps": 9.3
+      "n_measurements": 4,
+      "predicted_fps_640x480_c50": 6.12,
+      "actual_mean_fps": 7.66
     },
     {
       "utc_hour": 20,
       "median_rtt_ms": 701.1,
       "median_jitter_ms": 66.9,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 17.27,
+      "predicted_fps_640x480_c50": 17.29,
       "actual_mean_fps": 22.85
     },
     {
@@ -1127,7 +1128,7 @@
       "median_rtt_ms": 681.4,
       "median_jitter_ms": 55.3,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 18.5,
+      "predicted_fps_640x480_c50": 18.52,
       "actual_mean_fps": 23.71
     },
     {
@@ -1135,7 +1136,7 @@
       "median_rtt_ms": 774.0,
       "median_jitter_ms": 76.3,
       "n_measurements": 6,
-      "predicted_fps_640x480_c50": 17.02,
+      "predicted_fps_640x480_c50": 17.04,
       "actual_mean_fps": 20.43
     },
     {
@@ -1143,7 +1144,7 @@
       "median_rtt_ms": 615.1,
       "median_jitter_ms": 138.6,
       "n_measurements": 4,
-      "predicted_fps_640x480_c50": 13.15,
+      "predicted_fps_640x480_c50": 13.16,
       "actual_mean_fps": 17.87
     }
   ]
