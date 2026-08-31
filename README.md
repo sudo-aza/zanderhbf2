@@ -4,7 +4,15 @@ Automated research into the FPS behavior of an Axis P1357 network camera.
 
 ## Goal
 
-Derive an equation: **FPS = f(resolution, compression, concurrent_viewers, time_of_day, network_conditions)**
+**Core deliverable: a planning model that predicts FPS from resolution, compression, and time-of-day ONLY.**
+
+These are parameters you can know completely independent of runtime — no real-time network measurements needed. The model lets you answer "if I set the camera to 1280×720 compression 50 at 14:00 UTC, what FPS will I get?" before deploying.
+
+The planning model uses 7 features: intercept, megapixels, compression, compression², MP×compression, sin(hour), cos(hour). No jitter, no RTT, no concurrent viewers — those are runtime variables.
+
+A secondary diagnostic model (tod_quad11) includes jitter/RTT features and achieves higher R² (~0.80), but it can only be used for post-hoc analysis — you can't predict jitter in advance.
+
+Full equation: **FPS = f(resolution, compression, time_of_day)** — with concurrent_viewers, network_conditions as secondary factors explored in later phases.
 
 ## Camera
 
@@ -62,11 +70,25 @@ Each line in `history.jsonl` is a JSON object:
 }
 ```
 
-## Regression Model
+## Regression Models
 
-The script fits: **FPS = a + b×MP + c×compression + d×connections + e×(MP×compression)**
+### Planning Model (core deliverable)
 
-Using normal equation (no external dependencies). Results in `data/model_summary.json`.
+**FPS = a + b×MP + c×compression + d×compression² + e×(MP×compression) + f×sin(hour) + g×cos(hour)**
+
+- Features: resolution (megapixels), compression (0-100), time-of-day (sin/cos encoding)
+- No jitter, no RTT, no concurrent viewers — these aren't knowable in advance
+- Current R² ≈ 0.63 — improves as more hours get coverage
+- Use case: "What FPS will I get at 1280×720 c50 at 14:00 UTC?"
+
+### Diagnostic Model (tod_quad11)
+
+Adds jitter, log(jitter), RTT, MP×jitter, and website visitors as features.
+- Current R² ≈ 0.80 — higher because it uses real-time network info
+- Use case: post-hoc analysis of "why did I get this FPS?"
+- Cannot be used for advance planning (you can't predict jitter beforehand)
+
+Both models use normal equation regression (no external dependencies). Results in `data/model_summary.json`.
 
 ## Key Hypotheses
 
