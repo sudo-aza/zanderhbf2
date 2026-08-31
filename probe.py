@@ -1470,14 +1470,12 @@ def git_commit_push(repo_dir, message):
 MAX_RETRIES = 1  # retry once if measurement is noisy
 RETRY_WAIT_S = 30  # seconds to wait before retry (let network conditions change)
 
-# Fast-skip window: only the most extreme congestion where probes yield ~0 fps.
-# We DO record all other noisy data — daytime measurements are VALUABLE for
-# predicting real-world FPS. The regression uses jitter + time-of-day as features.
-# Evidence: 07:30-09:00 UTC consistently gives <1 fps with >500ms jitter.
-FAST_SKIP_START_UTC = 7.5   # 07:30 UTC
-FAST_SKIP_END_UTC = 9      # 09:00 UTC
-QUICK_JITTER_ABORT_MS = 800  # only skip if pre-check jitter is truly catastrophic
-# JITTER_HARD_ABORT_MS removed — ALL data gets recorded
+# No time-based skip — ALL hours provide valuable data for the planning model
+# (which uses sin_hour/cos_hour and needs complete hour coverage).
+# Time-based skips were removed because they created gaps that hurt the
+# planning model's ability to predict FPS for those hours.
+# Only catastrophic pre-check jitter (>800ms) triggers a skip.
+QUICK_JITTER_ABORT_MS = 800
 
 def main():
     log("=== zanderhbf2 probe starting ===")
@@ -1486,14 +1484,8 @@ def main():
     plan = load_plan()
     log(f"History: {len(history)} measurements")
 
-    # Fast-skip only the worst 1.5h window (07:30-09:00 UTC) where fps is reliably ~0
+    # No time-based skip — all hours needed for planning model
     utc_now = datetime.datetime.now(datetime.timezone.utc)
-    utc_frac_hour = utc_now.hour + utc_now.minute / 60.0
-    if FAST_SKIP_START_UTC <= utc_frac_hour < FAST_SKIP_END_UTC:
-        log(f"FAST SKIP: UTC {utc_now.strftime('%H:%M')} in extreme congestion window ({FAST_SKIP_START_UTC}:00-{FAST_SKIP_END_UTC}:00 UTC). Saving 70s.")
-        git_commit_push(REPO_DIR, f"skip #{len(history)+1}: fast-skip (UTC {utc_now.strftime('%H:%M')})")
-        log("=== zanderhbf2 probe complete (skipped) ===")
-        return None
 
     # Design next test
     test = design_next_test(history, plan)
