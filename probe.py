@@ -1478,11 +1478,13 @@ def git_commit_push(repo_dir, message):
 MAX_RETRIES = 1  # retry once if measurement is noisy
 RETRY_WAIT_S = 30  # seconds to wait before retry (let network conditions change)
 
-# No time-based skip — ALL hours provide valuable data for the planning model
-# (which uses sin_hour/cos_hour and needs complete hour coverage).
-# Time-based skips were removed because they created gaps that hurt the
-# planning model's ability to predict FPS for those hours.
-# Only catastrophic pre-check jitter (>800ms) triggers a skip.
+# IMPORTANT: Do NOT re-add time-based skip logic.
+# The planning model (core deliverable, see docstring) uses sin_hour/cos_hour
+# and needs data from ALL hours to predict FPS accurately.
+# Skipping any hour window creates coverage gaps that degrade the planning model.
+# Even noisy measurements carry useful signal: they document what FPS looks like
+# at that hour, which is exactly what the planning model needs to learn.
+# Only catastrophic pre-check jitter (>800ms) justifies skipping a probe.
 QUICK_JITTER_ABORT_MS = 800
 
 def main():
