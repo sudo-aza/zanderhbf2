@@ -2,11 +2,19 @@
 """
 zanderhbf2 — Axis P1357 Webcam FPS Research Probe
 ===================================================
+
+**CORE DELIVERABLE: Planning model predicting FPS from resolution + compression + time-of-day ONLY.**
+These are parameters knowable in advance (no runtime network measurements).
+Features: intercept, megapixels, compression, compression², MP×compression, sin(hour), cos(hour).
+
+A secondary diagnostic model (tod_quad11) includes jitter/RTT for post-hoc analysis (R²~0.80),
+but CANNOT be used for advance planning since jitter/RTT are not predictable.
+
 Iteratively probes an MJPEG camera to model FPS as a function of:
   resolution, compression, time-of-day, concurrent connections, network RTT,
   and any other discoverable factors.
 
-Designed to be called once per hour by a cron job. Each invocation:
+Designed to be called by a cron job (every 15 min). Each invocation:
   1. Reads history from data/history.jsonl
   2. Picks the next best test parameters (iterative experimental design)
   3. Captures a short MJPEG stream, measures actual FPS + frame sizes
